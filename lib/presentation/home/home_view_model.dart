@@ -4,7 +4,7 @@ import '../../data/models/vehicle_models.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/repositories/user_repository_impl.dart';
 import '../../data/repositories/vehicle_repository.dart';
-import '../../data/repositories/booking_repository.dart';
+import '../../domain/repositories/booking_repository.dart';
 
 part 'home_view_model.g.dart';
 

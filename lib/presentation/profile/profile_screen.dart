@@ -7,6 +7,8 @@ import '../../core/theme/app_theme.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
 import '../../data/models/user_models.dart';
+import 'saved_locations_view_model.dart';
+import 'location_dialogs.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -14,6 +16,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final userAsyncValue = ref.watch(userProfileProvider);
+    final locationsAsync = ref.watch(savedLocationsViewModelProvider);
 
     return Scaffold(
       backgroundColor: AppColors.white,
@@ -59,7 +62,14 @@ class ProfileScreen extends ConsumerWidget {
                           ),
                         ),
                         SizedBox(width: 16.w),
-                        Text(user.displayName, style: TextStyle(color: AppColors.white, fontSize: 22.sp, fontWeight: FontWeight.bold)),
+                        Expanded(
+                          child: Text(
+                            user.displayName, 
+                            style: TextStyle(color: AppColors.white, fontSize: 22.sp, fontWeight: FontWeight.bold),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ],
                     ),
                     SizedBox(height: 24.h),
@@ -86,21 +96,29 @@ class ProfileScreen extends ConsumerWidget {
                       title: 'Personal Information',
                       subtitle: 'Update your details',
                       iconAsset: 'assets/icons/ic_user.svg',
-                      onTap: () {}, // context.push('/personal-info')
+                      onTap: () => context.push('/personal-info'),
                     ),
                     SizedBox(height: 12.h),
                     _buildSettingItem(
                       title: 'Change Password',
                       subtitle: 'Update your security',
                       iconAsset: 'assets/icons/ic_lock.svg',
-                      onTap: () {}, // context.push('/change-password')
+                      onTap: () => context.push('/change-password'),
                     ),
                     SizedBox(height: 12.h),
                     _buildSettingItem(
                       title: 'Saved Locations',
-                      subtitle: 'Manage your addresses',
+                      subtitle: locationsAsync.maybeWhen(
+                        data: (locations) => locations.isEmpty 
+                            ? 'No places saved' 
+                            : '${locations.length} ${locations.length == 1 ? 'place' : 'places'} saved',
+                        orElse: () => 'Manage your addresses',
+                      ),
                       iconAsset: 'assets/icons/ic_location.svg',
-                      onTap: () {},
+                      onTap: () => showDialog(
+                        context: context,
+                        builder: (context) => const SavedPlacesDialog(),
+                      ),
                     ),
                     
                     SizedBox(height: 32.h),

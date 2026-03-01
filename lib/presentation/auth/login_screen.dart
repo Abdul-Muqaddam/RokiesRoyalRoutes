@@ -77,8 +77,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           borderSide: const BorderSide(color: Colors.white24),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.r),
-          borderSide: const BorderSide(color: AppColors.gold),
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: const BorderSide(color: AppColors.gold, width: 2),
         ),
       ),
     );
@@ -121,21 +121,48 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             
                             SizedBox(height: 16.h),
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Theme(
-                                  data: Theme.of(context).copyWith(unselectedWidgetColor: Colors.white54),
-                                  child: Checkbox(
-                                    value: _rememberMe,
-                                    onChanged: (val) => setState(() => _rememberMe = val ?? false),
-                                    activeColor: AppColors.gold,
-                                    checkColor: AppColors.navy,
+                                Flexible(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Theme(
+                                        data: Theme.of(context).copyWith(unselectedWidgetColor: Colors.white54),
+                                        child: SizedBox(
+                                          width: 24.w,
+                                          height: 24.w,
+                                          child: Checkbox(
+                                            value: _rememberMe,
+                                            onChanged: (val) => setState(() => _rememberMe = val ?? false),
+                                            activeColor: AppColors.gold,
+                                            checkColor: AppColors.navy,
+                                          ),
+                                        ),
+                                      ),
+                                      SizedBox(width: 8.w),
+                                      Flexible(
+                                        child: Text(
+                                          'Remember Me', 
+                                          style: TextStyle(color: AppColors.white, fontSize: 13.sp),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Text('Remember Me', style: TextStyle(color: AppColors.white, fontSize: 13.sp)),
-                                const Spacer(),
                                 TextButton(
                                   onPressed: () => context.push('/forgot-password'),
-                                  child: Text('Forgot Password?', style: TextStyle(color: AppColors.gold, fontSize: 13.sp)),
+                                  style: TextButton.styleFrom(
+                                    padding: EdgeInsets.zero,
+                                    minimumSize: Size.zero,
+                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                  ),
+                                  child: Text(
+                                    'Forgot Password?', 
+                                    style: TextStyle(color: AppColors.gold, fontSize: 13.sp, fontWeight: FontWeight.w600),
+                                  ),
                                 )
                               ],
                             ),

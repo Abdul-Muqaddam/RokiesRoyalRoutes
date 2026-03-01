@@ -44,6 +44,11 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthResponse> forgotPassword(String email) async {
+    return _apiService.forgotPassword(ForgotPasswordRequest(email: email));
+  }
+
+  @override
   Future<void> logout() async {
     await _preferencesManager.clearToken();
   }

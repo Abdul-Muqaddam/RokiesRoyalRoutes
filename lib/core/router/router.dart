@@ -8,7 +8,11 @@ import '../../presentation/auth/register_screen.dart';
 import '../../presentation/auth/forgot_password_screen.dart';
 import '../../presentation/home/home_screen.dart';
 import '../../presentation/profile/profile_screen.dart';
+import '../../presentation/profile/personal_information_screen.dart';
+import '../../presentation/profile/change_password_screen.dart';
 import '../../presentation/booking/booking_screen.dart';
+import '../../presentation/booking/booking_success_screen.dart';
+import '../../presentation/booking/invoice_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -43,8 +47,24 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
+        path: '/personal-info',
+        builder: (context, state) => const PersonalInformationScreen(),
+      ),
+      GoRoute(
+        path: '/change-password',
+        builder: (context, state) => const ChangePasswordScreen(),
+      ),
+      GoRoute(
         path: '/booking',
         builder: (context, state) => const BookingScreen(),
+      ),
+      GoRoute(
+        path: '/booking-success',
+        builder: (context, state) => const BookingSuccessScreen(),
+      ),
+      GoRoute(
+        path: '/invoice',
+        builder: (context, state) => const InvoiceScreen(),
       ),
     ],
   );

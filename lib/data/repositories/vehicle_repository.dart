@@ -21,8 +21,14 @@ class VehicleRepositoryImpl implements VehicleRepository {
     return dtos.map((dto) => Vehicle(
       id: dto.id.toString(),
       name: dto.title,
+      model: dto.description,
       imageUrl: dto.image,
       passengers: int.tryParse(dto.passengerCapacity) ?? 0,
+      luggage: int.tryParse(dto.luggageCapacity) ?? 0,
+      price: double.tryParse(dto.basePrice) ?? 0.0,
+      currency: dto.currency ?? 'CAD',
+      type: dto.vehicleType,
+      category: dto.vehicleType,
     )).toList();
   }
 }

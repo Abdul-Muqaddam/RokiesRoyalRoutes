@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../core/theme/app_theme.dart';
 
 class OnboardingPageData {
@@ -97,19 +98,21 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         SizedBox(height: 32.h),
                         Text(
                           page.title,
-                          style: TextStyle(
-                            fontSize: 26.sp,
+                          style: GoogleFonts.outfit(
+                            fontSize: 24.sp,
                             fontWeight: FontWeight.bold,
                             color: AppColors.navy,
+                            height: 1.2,
                           ),
                           textAlign: TextAlign.center,
                         ),
-                        SizedBox(height: 12.h),
+                        SizedBox(height: 16.h),
                         Text(
                           page.description,
-                          style: TextStyle(
+                          style: GoogleFonts.outfit(
                             fontSize: 14.sp,
-                            color: Colors.grey,
+                            color: Colors.grey[600],
+                            height: 1.5,
                           ),
                           textAlign: TextAlign.center,
                         ),

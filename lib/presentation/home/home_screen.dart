@@ -7,6 +7,8 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/services/location_service.dart';
 import 'home_view_model.dart';
+import '../trips/trips_screen.dart';
+import '../profile/profile_screen.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -52,8 +54,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onPageChanged: _onPageChanged,
         children: [
           _buildHomeContent(),
-          const Center(child: Text("Trips Screen Content")),
-          const Center(child: Text("Profile Screen Content")),
+          const TripsScreen(),
+          const ProfileScreen(),
         ],
       ),
       bottomNavigationBar: Container(

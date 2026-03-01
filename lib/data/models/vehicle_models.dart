@@ -46,13 +46,25 @@ class VehicleDto {
 class Vehicle {
   final String id;
   final String name;
+  final String model;
   final String imageUrl;
   final int passengers;
+  final int luggage;
+  final double price;
+  final String currency;
+  final String type;
+  final String category;
 
   Vehicle({
     required this.id,
     required this.name,
+    required this.model,
     required this.imageUrl,
     required this.passengers,
+    required this.luggage,
+    required this.price,
+    required this.currency,
+    required this.type,
+    required this.category,
   });
 }

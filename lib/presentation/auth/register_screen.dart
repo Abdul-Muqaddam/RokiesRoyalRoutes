@@ -117,8 +117,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           borderSide: const BorderSide(color: Colors.white24),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.r),
-          borderSide: const BorderSide(color: AppColors.gold),
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: const BorderSide(color: AppColors.gold, width: 2),
         ),
       ),
     );
@@ -179,15 +179,18 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                 ),
                             SizedBox(height: 24.h),
                   
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text("Already have an account? ", style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
-                                GestureDetector(
-                                  onTap: () => context.pop(), // pop back to login
-                                  child: Text('Login', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14.sp)),
-                                )
-                              ],
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text("Already have an account? ", style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
+                                  GestureDetector(
+                                    onTap: () => context.pop(), // pop back to login
+                                    child: Text('Login', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14.sp)),
+                                  )
+                                ],
+                              ),
                             ),
                             const Spacer(),
                           ],

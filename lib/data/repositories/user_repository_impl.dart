@@ -8,7 +8,11 @@ part 'user_repository_impl.g.dart';
 
 abstract class UserRepository {
   Future<UserProfileResponse> getUserProfile();
+  Future<UserProfileResponse> updateProfile(UpdateProfileRequest request);
   Future<ChangePasswordResponse> changePassword(ChangePasswordRequest request);
+  Future<List<LocationItem>> getSavedLocations();
+  Future<UserProfileResponse> updateSavedLocations(UpdateLocationsRequest request);
+  Future<AutocompleteResponse> getAutocompleteSuggestions(String input, String apiKey);
 }
 
 class UserRepositoryImpl implements UserRepository {
@@ -22,8 +26,45 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
+  Future<UserProfileResponse> updateProfile(UpdateProfileRequest request) async {
+    return _apiService.updateProfile(request);
+  }
+
+  @override
   Future<ChangePasswordResponse> changePassword(ChangePasswordRequest request) async {
     return _apiService.changePassword(request);
+  }
+
+  @override
+  Future<List<LocationItem>> getSavedLocations() async {
+    final response = await _apiService.getSavedLocations();
+    final locations = <LocationItem>[];
+
+    if (response.home != null && response.home!.isNotEmpty) {
+      locations.add(LocationItem(name: 'Home', address: response.home!));
+    }
+
+    if (response.work != null && response.work!.isNotEmpty) {
+      locations.add(LocationItem(name: 'Work', address: response.work!));
+    }
+
+    if (response.custom != null) {
+      for (var custom in response.custom!) {
+        locations.add(LocationItem(name: custom.name, address: custom.address));
+      }
+    }
+
+    return locations;
+  }
+
+  @override
+  Future<UserProfileResponse> updateSavedLocations(UpdateLocationsRequest request) async {
+    return _apiService.updateSavedLocations(request);
+  }
+
+  @override
+  Future<AutocompleteResponse> getAutocompleteSuggestions(String input, String apiKey) async {
+    return _apiService.getAutocompleteSuggestions(input, apiKey);
   }
 }
 
