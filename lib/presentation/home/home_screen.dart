@@ -226,7 +226,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: () => context.push('/booking'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Theme.of(context).colorScheme.secondary,
-                foregroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onSecondary,
                 minimumSize: Size(double.infinity, 50.h),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                 elevation: 0,
@@ -234,7 +234,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SvgPicture.asset('assets/icons/ic_plus.svg', width: 18.w, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.primary, BlendMode.srcIn)),
+                  SvgPicture.asset('assets/icons/ic_plus.svg', width: 18.w, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.onSecondary, BlendMode.srcIn)),
                   SizedBox(width: 8.w),
                   Text('Book a Ride', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
                 ],

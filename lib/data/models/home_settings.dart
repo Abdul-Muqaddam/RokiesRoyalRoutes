@@ -89,6 +89,11 @@ class HomeSettingsNotifier extends StateNotifier<HomeSettings> {
     }
   }
 
+  Future<void> setSettings(HomeSettings settings) async {
+    state = settings;
+    await _saveSettings();
+  }
+
   Future<void> updateVisibility(HomeSection section, bool visible) async {
     final newVisibility = Map<HomeSection, bool>.from(state.visibility);
     newVisibility[section] = visible;

@@ -3,6 +3,7 @@ import '../models/auth_models.dart';
 import '../models/user_models.dart';
 import '../models/vehicle_models.dart';
 import '../models/booking_models.dart';
+import '../models/app_config.dart';
 
 class ApiService {
   final Dio _dio;
@@ -163,5 +164,14 @@ class ApiService {
   Future<PayPalExecuteResponse> executePayPalPayment(String orderId, int bookingId) async {
     final response = await _dio.post('paypal/execute-payment', data: PayPalExecuteRequest(orderId, bookingId).toJson());
     return PayPalExecuteResponse.fromJson(response.data);
+  }
+
+  Future<AppConfig> getAppConfig() async {
+    final response = await _dio.get('app-config');
+    return AppConfig.fromJson(response.data);
+  }
+
+  Future<void> updateAppConfig(AppConfig config) async {
+    await _dio.post('app-config', data: config.toJson());
   }
 }

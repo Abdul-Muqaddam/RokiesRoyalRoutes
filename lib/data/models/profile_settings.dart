@@ -89,6 +89,11 @@ class ProfileSettingsNotifier extends StateNotifier<ProfileSettings> {
     }
   }
 
+  Future<void> setSettings(ProfileSettings settings) async {
+    state = settings;
+    await _saveSettings();
+  }
+
   Future<void> updateVisibility(ProfileSection section, bool visible) async {
     final newVisibility = Map<ProfileSection, bool>.from(state.visibility);
     newVisibility[section] = visible;

@@ -53,7 +53,7 @@ class BookingSuccessScreen extends ConsumerWidget {
                   onPressed: () => context.go('/home'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.secondary,
-                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
                     minimumSize: Size(double.infinity, 56.h),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                     elevation: 0,

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/providers/app_config_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -32,7 +33,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 
   Future<void> _checkAuth() async {
+    // Initiate global config fetch
+    final configFetch = ref.read(appConfigProvider.notifier).fetchConfig();
+
     await Future.delayed(const Duration(seconds: 3)); // Same 3 sec delay as Kotlin
+    
+    // Ensure config is loaded before proceeding to UI
+    await configFetch;
+
     if (!context.mounted) return;
 
     try {

@@ -296,11 +296,11 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
           onPressed: isActionLoading ? null : _save,
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.secondary,
-            foregroundColor: Theme.of(context).colorScheme.primary,
+            foregroundColor: Theme.of(context).colorScheme.onSecondary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           ),
           child: isActionLoading
-              ? SizedBox(height: 20.h, width: 20.h, child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2))
+              ? SizedBox(height: 20.h, width: 20.h, child: CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary, strokeWidth: 2))
               : const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],

@@ -175,7 +175,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   style: ElevatedButton.styleFrom(
                                     padding: EdgeInsets.symmetric(vertical: 16.h),
                                     backgroundColor: Theme.of(context).colorScheme.secondary,
-                                    foregroundColor: Theme.of(context).colorScheme.primary,
+                                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                                   ),
                                   child: Text('Login', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),

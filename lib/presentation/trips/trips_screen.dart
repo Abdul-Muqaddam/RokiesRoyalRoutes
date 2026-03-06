@@ -113,8 +113,8 @@ class TripsScreen extends ConsumerWidget {
               child: ElevatedButton(
                 onPressed: () => context.push('/booking'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Theme.of(context).colorScheme.secondary,
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  foregroundColor: Theme.of(context).colorScheme.onSecondary,
                   minimumSize: Size(double.infinity, 56.h),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                 ),

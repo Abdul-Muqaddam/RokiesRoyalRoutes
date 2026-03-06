@@ -329,9 +329,9 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
     state = AsyncValue.data(state.value!.copyWith(currentStep: step));
   }
 
-  void nextStep() {
+  void nextStep(int totalSteps) {
     final current = state.value!.currentStep;
-    if (current < 3) {
+    if (current < totalSteps - 1) {
       updateStep(current + 1);
     }
   }

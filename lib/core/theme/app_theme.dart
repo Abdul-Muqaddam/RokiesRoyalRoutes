@@ -21,7 +21,7 @@ class AppTheme {
     final primaryAccent = customPrimary ?? AppColors.gold;
     final primaryNav = customNavy ?? AppColors.navy;
     final textColor = customTextColor ?? AppColors.charcoalGray;
-    final highlightTextColor = customHighlightTextColor ?? primaryAccent;
+    final highlightTextColor = customHighlightTextColor ?? AppColors.navy;
     
     final baseTheme = ThemeData(
       useMaterial3: true,

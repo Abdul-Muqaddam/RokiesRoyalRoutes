@@ -17,6 +17,7 @@ import '../../presentation/auth/admin_login_screen.dart';
 import '../../presentation/customization/customization_screen.dart';
 import '../../presentation/home/home_screen_customization_screen.dart';
 import '../../presentation/profile/profile_customization_screen.dart';
+import '../../presentation/booking/booking_step_customization_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -85,6 +86,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile-customization',
         builder: (context, state) => const ProfileCustomizationScreen(),
+      ),
+      GoRoute(
+        path: '/booking-step-1-customization',
+        builder: (context, state) => const BookingStepCustomizationScreen(stepIndex: 1),
+      ),
+      GoRoute(
+        path: '/booking-step-2-customization',
+        builder: (context, state) => const BookingStepCustomizationScreen(stepIndex: 2),
+      ),
+      GoRoute(
+        path: '/booking-step-3-customization',
+        builder: (context, state) => const BookingStepCustomizationScreen(stepIndex: 3),
+      ),
+      GoRoute(
+        path: '/booking-step-4-customization',
+        builder: (context, state) => const BookingStepCustomizationScreen(stepIndex: 4),
       ),
     ],
   );

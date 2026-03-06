@@ -157,7 +157,7 @@ class ProfileScreen extends ConsumerWidget {
           _buildSettingItem(context,
             title: 'Customize App',
             subtitle: 'Customize the app settings',
-            iconAsset: 'assets/icons/ic_settings.svg',
+            iconAsset: 'assets/icons/ic_customization.svg',
             onTap: () {
               final prefs = ref.read(preferencesManagerProvider);
               if (prefs.getAdminRememberMe()) {

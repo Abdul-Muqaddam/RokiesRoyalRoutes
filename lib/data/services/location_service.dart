@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:geocoding/geocoding.dart';
@@ -29,11 +30,23 @@ class LocationService {
     }
 
     try {
-      Position position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-        ),
-      );
+      Position? position;
+      try {
+        position = await Geolocator.getCurrentPosition(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.high,
+            timeLimit: Duration(seconds: 10),
+          ),
+        );
+      } catch (e) {
+        debugPrint('Error or timeout fetching current position: $e');
+        // Fallback to last known position
+        position = await Geolocator.getLastKnownPosition();
+      }
+
+      if (position == null) {
+        return 'Could not determine location';
+      }
 
       List<Placemark> placemarks = await placemarkFromCoordinates(
         position.latitude,

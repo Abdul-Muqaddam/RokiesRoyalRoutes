@@ -146,13 +146,13 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
                   onPressed: viewModelState is AsyncLoading ? null : _saveChanges,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.secondary,
-                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
                     minimumSize: Size(double.infinity, 54.h),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
                   ),
                   child: viewModelState is AsyncLoading
-                      ? CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)
-                      : Text('Save Changes', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 15.sp, fontWeight: FontWeight.bold)),
+                      ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary)
+                      : Text('Save Changes', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
                 ),
                 SizedBox(height: 24.h),
               ],

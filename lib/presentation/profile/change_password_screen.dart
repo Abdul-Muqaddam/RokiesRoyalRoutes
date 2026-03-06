@@ -89,12 +89,12 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                 onPressed: viewModelState is AsyncLoading ? null : _changePassword,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Theme.of(context).colorScheme.secondary,
-                  foregroundColor: viewModelState is AsyncLoading ? Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5) : Theme.of(context).colorScheme.primary,
+                  foregroundColor: viewModelState is AsyncLoading ? Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5) : Theme.of(context).colorScheme.onSecondary,
                   minimumSize: Size(double.infinity, 54.h),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
                 ),
                 child: viewModelState is AsyncLoading
-                    ? CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)
+                    ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary)
                     : Text('Change Password', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
               ),
             ],

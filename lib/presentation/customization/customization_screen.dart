@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/providers/app_color_provider.dart';
+import '../../data/providers/app_config_provider.dart';
 
 class CustomizationScreen extends ConsumerStatefulWidget {
   const CustomizationScreen({super.key});
@@ -65,6 +66,12 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     if (error != null) return;
 
     ref.read(appColorProvider.notifier).updateColor(text);
+    
+    // Push global config to backend
+    ref.read(appConfigProvider.notifier).updateConfig(
+      ref.read(appConfigProvider.notifier).createConfigFromLocal()
+    );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Accent color updated to #$text!')),
@@ -79,6 +86,12 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     if (error != null) return;
 
     ref.read(appPrimaryColorProvider.notifier).updateColor(text);
+    
+    // Push global config to backend
+    ref.read(appConfigProvider.notifier).updateConfig(
+      ref.read(appConfigProvider.notifier).createConfigFromLocal()
+    );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Primary color updated to #$text!')),
@@ -93,6 +106,12 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     if (error != null) return;
 
     ref.read(appTextColorProvider.notifier).updateColor(text);
+    
+    // Push global config to backend
+    ref.read(appConfigProvider.notifier).updateConfig(
+      ref.read(appConfigProvider.notifier).createConfigFromLocal()
+    );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Text color updated to #$text!')),
@@ -107,6 +126,12 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     if (error != null) return;
 
     ref.read(appHighlightTextColorProvider.notifier).updateColor(text);
+    
+    // Push global config to backend
+    ref.read(appConfigProvider.notifier).updateConfig(
+      ref.read(appConfigProvider.notifier).createConfigFromLocal()
+    );
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Highlight text color updated to #$text!')),
@@ -333,9 +358,15 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
                       ),
                       SizedBox(height: 32.h),
                       _HomeScreenCustomizationComponent(accentColor: accentColor),
-                SizedBox(height: 32.h),
-                _ProfileScreenCustomizationComponent(accentColor: accentColor),
-                SizedBox(height: 32.h),
+                      SizedBox(height: 32.h),
+                      _ProfileScreenCustomizationComponent(accentColor: accentColor),
+                      SizedBox(height: 32.h),
+                      ...List.generate(4, (index) => Column(
+                        children: [
+                          _BookingStepCard(stepNumber: index + 1, accentColor: accentColor),
+                          if (index < 3) SizedBox(height: 32.h),
+                        ],
+                      )),
                     ],
                   ),
                 ),
@@ -390,7 +421,7 @@ class _HomeScreenCustomizationComponent extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               padding: EdgeInsets.symmetric(vertical: 14.h),
               backgroundColor: Theme.of(context).colorScheme.secondary,
-              foregroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onSecondary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.r),
               ),
@@ -448,7 +479,7 @@ class _ProfileScreenCustomizationComponent extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               padding: EdgeInsets.symmetric(vertical: 14.h),
               backgroundColor: Theme.of(context).colorScheme.secondary,
-              foregroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onSecondary,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12.r),
               ),
@@ -456,6 +487,92 @@ class _ProfileScreenCustomizationComponent extends StatelessWidget {
             ),
             child: Text(
               'Customize Profile',
+              style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BookingStepCard extends StatelessWidget {
+  final int stepNumber;
+  final Color accentColor;
+  const _BookingStepCard({required this.stepNumber, required this.accentColor});
+
+  @override
+  Widget build(BuildContext context) {
+    String stepName = '';
+    String stepDesc = '';
+    switch (stepNumber) {
+      case 1: 
+        stepName = 'Location Selection';
+        stepDesc = 'Customize fields and recent/saved places.';
+        break;
+      case 2:
+        stepName = 'Schedule Picking';
+        stepDesc = 'Customize date/time grids and labels.';
+        break;
+      case 3:
+        stepName = 'Vehicle Choice';
+        stepDesc = 'Customize filters and vehicle cards.';
+        break;
+      case 4:
+        stepName = 'Checkout Summary';
+        stepDesc = 'Customize personal details and payment section.';
+        break;
+    }
+
+    return Container(
+      padding: EdgeInsets.all(20.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Booking Step $stepNumber Customization',
+            style: TextStyle(
+              fontSize: 16.sp,
+              fontWeight: FontWeight.bold,
+              color: Theme.of(context).textTheme.titleMedium?.color,
+            ),
+          ),
+          SizedBox(height: 4.h),
+          Text(
+            stepName,
+            style: TextStyle(fontSize: 14.sp, color: accentColor, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            stepDesc,
+            style: TextStyle(fontSize: 12.sp, color: AppColors.mediumGray),
+          ),
+          SizedBox(height: 16.h),
+          ElevatedButton(
+            onPressed: () => context.push('/booking-step-$stepNumber-customization'),
+            style: ElevatedButton.styleFrom(
+              padding: EdgeInsets.symmetric(vertical: 14.h),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              foregroundColor: Theme.of(context).colorScheme.onSecondary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              minimumSize: Size(double.infinity, 48.h),
+            ),
+            child: Text(
+              'Customize Step $stepNumber',
               style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold),
             ),
           ),

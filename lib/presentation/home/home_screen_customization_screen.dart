@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/home_settings.dart';
+import '../../data/providers/app_config_provider.dart';
 
 class HomeScreenCustomizationScreen extends ConsumerWidget {
   const HomeScreenCustomizationScreen({super.key});
@@ -41,14 +42,24 @@ class HomeScreenCustomizationScreen extends ConsumerWidget {
           Expanded(
             child: ReorderableListView(
               padding: EdgeInsets.all(16.w),
-              onReorder: notifier.reorderSections,
+              onReorder: (oldIdx, newIdx) {
+                notifier.reorderSections(oldIdx, newIdx);
+                ref.read(appConfigProvider.notifier).updateConfig(
+                  ref.read(appConfigProvider.notifier).createConfigFromLocal()
+                );
+              },
               buildDefaultDragHandles: false,
               children: settings.sections.map((section) {
                 return _SectionTile(
                   key: ValueKey(section),
                   section: section,
                   isVisible: settings.visibility[section] ?? true,
-                  onToggle: (val) => notifier.updateVisibility(section, val),
+                  onToggle: (val) {
+                    notifier.updateVisibility(section, val);
+                    ref.read(appConfigProvider.notifier).updateConfig(
+                      ref.read(appConfigProvider.notifier).createConfigFromLocal()
+                    );
+                  },
                   settings: settings,
                 );
               }).toList(),

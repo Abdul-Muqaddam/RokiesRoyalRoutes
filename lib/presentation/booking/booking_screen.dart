@@ -7,6 +7,7 @@ import '../../core/theme/app_theme.dart';
 import '../../data/models/user_models.dart';
 import 'booking_view_model.dart';
 import 'payment_webview.dart';
+import '../../data/models/booking_settings.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
   const BookingScreen({super.key});
@@ -73,13 +74,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     final state = ref.watch(bookingViewModelProvider).value;
     if (state == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
+    final bookingSettings = ref.watch(bookingSettingsProvider);
+    final enabledSteps = bookingSettings.steps
+        .where((step) => bookingSettings.visibility[step] ?? true)
+        .toList();
+
     // Synchronize page controller with state
     if (_pageController.hasClients && _pageController.page?.toInt() != state.currentStep) {
-      _pageController.animateToPage(
-        state.currentStep,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
+      if (state.currentStep < enabledSteps.length) {
+        _pageController.animateToPage(
+          state.currentStep,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+        );
+      }
     }
 
     return Scaffold(
@@ -105,27 +113,36 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       ),
       body: Column(
         children: [
-          _buildStepIndicator(state.currentStep),
+          _buildStepIndicator(state.currentStep, enabledSteps),
           Expanded(
             child: PageView(
               controller: _pageController,
               physics: const NeverScrollableScrollPhysics(),
-              children: [
-                _BookingStep1(state: state),
-                _BookingStep2(state: state),
-                _BookingStep3(state: state),
-                _BookingStep4(state: state),
-              ],
+              children: enabledSteps.map((step) {
+                switch (step) {
+                  case BookingStep.locations: return _BookingStep1(state: state);
+                  case BookingStep.time: return _BookingStep2(state: state);
+                  case BookingStep.vehicle: return _BookingStep3(state: state);
+                  case BookingStep.summary: return _BookingStep4(state: state);
+                }
+              }).toList(),
             ),
           ),
-          _buildBottomBar(state),
+          _buildBottomBar(state, enabledSteps),
         ],
       ),
     );
   }
 
-  Widget _buildStepIndicator(int currentStep) {
-    final titles = ['Where to?', 'Schedule', 'Select Vehicle', 'Checkout'];
+  Widget _buildStepIndicator(int currentStep, List<BookingStep> enabledSteps) {
+    final titles = enabledSteps.map((step) {
+      switch (step) {
+        case BookingStep.locations: return 'Where to?';
+        case BookingStep.time: return 'Schedule';
+        case BookingStep.vehicle: return 'Select Vehicle';
+        case BookingStep.summary: return 'Checkout';
+      }
+    }).toList();
     
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
@@ -133,13 +150,13 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            children: List.generate(4, (index) {
+            children: List.generate(enabledSteps.length, (index) {
               final isActive = index == currentStep;
               final isCompleted = index < currentStep;
               return Expanded(
                 child: Container(
                   height: 6.h,
-                  margin: EdgeInsets.only(right: index < 3 ? 12.w : 0),
+                  margin: EdgeInsets.only(right: index < enabledSteps.length - 1 ? 12.w : 0),
                   decoration: BoxDecoration(
                     color: (isActive || isCompleted) ? Theme.of(context).colorScheme.secondary : Colors.grey[300],
                     borderRadius: BorderRadius.circular(10.r),
@@ -150,7 +167,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           ),
           SizedBox(height: 12.h),
           Text(
-            'Step ${currentStep + 1} of 4 - ${titles[currentStep]}',
+            'Step ${currentStep + 1} of ${enabledSteps.length} - ${titles[currentStep]}',
             style: TextStyle(
               color: Colors.grey[600],
               fontSize: 14.sp,
@@ -162,15 +179,20 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     );
   }
 
-  Widget _buildBottomBar(BookingState state) {
+  Widget _buildBottomBar(BookingState state, List<BookingStep> enabledSteps) {
+    if (state.currentStep >= enabledSteps.length) return const SizedBox.shrink();
+    
+    final currentStepType = enabledSteps[state.currentStep];
+    final isLastStep = state.currentStep == enabledSteps.length - 1;
+
     String buttonText = 'Next Step';
-    if (state.currentStep == 2) buttonText = 'Go to Checkout';
-    if (state.currentStep == 3) buttonText = 'Confirm Booking';
+    if (currentStepType == BookingStep.vehicle) buttonText = 'Go to Checkout';
+    if (isLastStep) buttonText = 'Confirm Booking';
 
     bool isEnabled = true;
-    if (state.currentStep == 0) {
+    if (currentStepType == BookingStep.locations) {
       isEnabled = state.pickupLocation.isNotEmpty && state.destination.isNotEmpty;
-    } else if (state.currentStep == 2) {
+    } else if (currentStepType == BookingStep.vehicle) {
       isEnabled = state.selectedVehicle != null;
     }
 
@@ -186,21 +208,21 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         top: false,
         child: ElevatedButton(
           onPressed: isEnabled ? () {
-            if (state.currentStep < 3) {
-              ref.read(bookingViewModelProvider.notifier).nextStep();
+            if (!isLastStep) {
+              ref.read(bookingViewModelProvider.notifier).nextStep(enabledSteps.length);
             } else {
               ref.read(bookingViewModelProvider.notifier).createBooking();
             }
           } : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: Theme.of(context).colorScheme.secondary,
-            foregroundColor: Theme.of(context).textTheme.bodyMedium?.color,
+            foregroundColor: Theme.of(context).colorScheme.onSecondary,
             minimumSize: Size(double.infinity, 56.h),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
             elevation: 0,
           ),
           child: state.isLoading 
-            ? CircularProgressIndicator(color: Theme.of(context).textTheme.bodyMedium?.color)
+            ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary)
             : Text(buttonText, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
         ),
       ),
@@ -215,112 +237,146 @@ class _BookingStep1 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(bookingViewModelProvider.notifier);
+    final settings = ref.watch(bookingSettingsProvider);
     
+    final sections = settings.step1Order.where((s) => settings.step1Visibility[s] ?? true).toList();
+
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Where are we going?',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 22.sp, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 8.h),
-          Text(
-            'Enter your pickup and destination details',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontSize: 14.sp),
-          ),
-          SizedBox(height: 32.h),
-          
-          _LocationField(
-            label: 'Pickup Location',
-            hint: 'From where?',
-            icon: 'assets/icons/ic_location.svg',
-            value: state.pickupLocation,
-            onChanged: viewModel.updatePickupLocation,
-            suggestions: state.pickupSuggestions,
-            onSuggestionTap: (p) => viewModel.selectSuggestion(p, true),
-          ),
-          
-          GestureDetector(
-            onTap: viewModel.fetchCurrentLocation,
-            child: Padding(
-              padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
-              child: Text(
-                'Choose your current location',
-                style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 13.sp, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ),
-          
-          _LocationField(
-            label: 'Destination',
-            hint: 'To where?',
-            icon: 'assets/icons/ic_location.svg',
-            iconColor: Theme.of(context).colorScheme.secondary,
-            value: state.destination,
-            onChanged: viewModel.updateDestination,
-            suggestions: state.destinationSuggestions,
-            onSuggestionTap: (p) => viewModel.selectSuggestion(p, false),
-          ),
-          
-          SizedBox(height: 24.h),
-          
-          _buildCalculateButton(context, viewModel, state),
-          
-          if (state.distance != null) ...[
-            SizedBox(height: 24.h),
-            _buildDistanceCard(context, state),
-          ] else if (state.error != null) ...[
-            SizedBox(height: 16.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 4.w),
-              child: Text(
-                state.error!,
-                style: TextStyle(color: Colors.red[700], fontSize: 13.sp, fontWeight: FontWeight.w500),
-              ),
-            ),
-          ],
-          
-          SizedBox(height: 32.h),
-          _buildSaveLocationSection(context, viewModel, state),
-          
-          SizedBox(height: 32.h),
-          _buildSavedPlacesSection(context, viewModel, state),
-          
-          SizedBox(height: 32.h),
-          Text(
-            'Recent Destinations',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16.h),
-          ... (state.showAllRecent 
-              ? state.recentDestinations 
-              : state.recentDestinations.take(3)).map((item) => _RecentDestinationCard(
-            item: item,
-            onTap: () => viewModel.selectLocation(item, false),
-          )),
-          if (state.recentDestinations.length > 3)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: viewModel.toggleShowAllRecent,
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  state.showAllRecent ? 'Show Less' : 'Show More',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8), 
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14.sp,
+        children: sections.map((section) {
+          switch (section) {
+            case BookingStep1Section.header:
+              return Column(
+                key: const ValueKey('header'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Where are we going?',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 22.sp, fontWeight: FontWeight.bold),
                   ),
-                ),
-              ),
-            ),
-        ],
+                  SizedBox(height: 8.h),
+                  Text(
+                    'Enter your pickup and destination details',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontSize: 14.sp),
+                  ),
+                  SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep1Section.locationFields:
+              return Column(
+                key: const ValueKey('locationFields'),
+                children: [
+                  _LocationField(
+                    label: 'Pickup Location',
+                    hint: 'From where?',
+                    icon: 'assets/icons/ic_location.svg',
+                    value: state.pickupLocation,
+                    onChanged: viewModel.updatePickupLocation,
+                    suggestions: state.pickupSuggestions,
+                    onSuggestionTap: (p) => viewModel.selectSuggestion(p, true),
+                  ),
+                  GestureDetector(
+                    onTap: viewModel.fetchCurrentLocation,
+                    child: Padding(
+                      padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
+                      child: Text(
+                        'Choose your current location',
+                        style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 13.sp, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                  ),
+                  _LocationField(
+                    label: 'Destination',
+                    hint: 'To where?',
+                    icon: 'assets/icons/ic_location.svg',
+                    iconColor: Theme.of(context).colorScheme.secondary,
+                    value: state.destination,
+                    onChanged: viewModel.updateDestination,
+                    suggestions: state.destinationSuggestions,
+                    onSuggestionTap: (p) => viewModel.selectSuggestion(p, false),
+                  ),
+                  SizedBox(height: 24.h),
+                ],
+              );
+            case BookingStep1Section.recentPlaces:
+              return Column(
+                key: const ValueKey('recentPlaces'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   Text(
+                    'Recent Destinations',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16.h),
+                  ... (state.showAllRecent 
+                      ? state.recentDestinations 
+                      : state.recentDestinations.take(3)).map((item) => _RecentDestinationCard(
+                    item: item,
+                    onTap: () => viewModel.selectLocation(item, false),
+                  )),
+                  if (state.recentDestinations.length > 3)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: viewModel.toggleShowAllRecent,
+                        style: TextButton.styleFrom(
+                          padding: EdgeInsets.zero,
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        child: Text(
+                          state.showAllRecent ? 'Show Less' : 'Show More',
+                          style: TextStyle(
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8), 
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep1Section.savedPlaces:
+              return Column(
+                key: const ValueKey('savedPlaces'),
+                children: [
+                    _buildSavedPlacesSection(context, viewModel, state),
+                    if (state.savedPlaces.isNotEmpty) SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep1Section.distanceCard:
+              return Column(
+                key: const ValueKey('distanceCard'),
+                children: [
+                  if (state.distance != null) ...[
+                    _buildDistanceCard(context, state),
+                    SizedBox(height: 24.h),
+                  ] else if (state.error != null) ...[
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4.w),
+                      child: Text(
+                        state.error!,
+                        style: TextStyle(color: Colors.red[700], fontSize: 13.sp, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    SizedBox(height: 16.h),
+                  ],
+                ],
+              );
+            case BookingStep1Section.saveLocation:
+              return Column(
+                key: const ValueKey('saveLocation'),
+                children: [
+                   _buildSaveLocationSection(context, viewModel, state),
+                   SizedBox(height: 32.h),
+                ],
+              );
+            default: return const SizedBox.shrink();
+          }
+        }).toList(),
       ),
     );
   }
@@ -534,66 +590,110 @@ class _BookingStep2 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(bookingViewModelProvider.notifier);
+    final settings = ref.watch(bookingSettingsProvider);
+    
+    final sections = settings.step2Order.where((s) => settings.step2Visibility[s] ?? true).toList();
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Pickup Time',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 12.h),
-          Row(
-            children: [
-              Expanded(
-                child: _TimeTypeButton(
-                  text: 'Now',
-                  isSelected: state.pickupTimeType == 'NOW',
-                  onTap: () => viewModel.setPickupTimeType('NOW'),
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: _TimeTypeButton(
-                  text: 'Schedule',
-                  isSelected: state.pickupTimeType == 'SCHEDULE',
-                  onTap: () => viewModel.setPickupTimeType('SCHEDULE'),
-                ),
-              ),
-            ],
-          ),
-          if (state.pickupTimeType == 'SCHEDULE') ...[
-            SizedBox(height: 32.h),
-            Text(
-              'Select Date',
-              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 12.h),
-            _DateSelector(
-              selectedDate: state.selectedDate,
-              onDateSelected: viewModel.selectDate,
-            ),
-            SizedBox(height: 32.h),
-            Text(
-              'Select Time',
-              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
-            ),
-            SizedBox(height: 12.h),
-            _TimeGrid(
-              selectedTime: state.selectedTime,
-              onTimeSelected: viewModel.selectTime,
-            ),
-            SizedBox(height: 24.h),
-            _CustomTimeButton(
-              selectedTime: state.selectedTime,
-              onTimeSelected: viewModel.selectTime,
-            ),
-          ],
-          SizedBox(height: 32.h),
-          _InfoBox(text: 'Your chauffeur will wait 15 mins for free at no extra charge'),
-        ],
+        children: sections.map((section) {
+          switch (section) {
+            case BookingStep2Section.timeType:
+              return Column(
+                key: const ValueKey('timeType'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pickup Time',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 12.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _TimeTypeButton(
+                          text: 'Now',
+                          isSelected: state.pickupTimeType == 'NOW',
+                          onTap: () => viewModel.setPickupTimeType('NOW'),
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: _TimeTypeButton(
+                          text: 'Schedule',
+                          isSelected: state.pickupTimeType == 'SCHEDULE',
+                          onTap: () => viewModel.setPickupTimeType('SCHEDULE'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep2Section.dateSelector:
+              return Column(
+                key: const ValueKey('dateSelector'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (state.pickupTimeType == 'SCHEDULE') ...[
+                    Text(
+                      'Select Date',
+                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 12.h),
+                    _DateSelector(
+                      selectedDate: state.selectedDate,
+                      onDateSelected: viewModel.selectDate,
+                    ),
+                    SizedBox(height: 32.h),
+                  ],
+                ],
+              );
+            case BookingStep2Section.timeGrid:
+              return Column(
+                key: const ValueKey('timeGrid'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                   if (state.pickupTimeType == 'SCHEDULE') ...[
+                    Text(
+                      'Select Time',
+                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
+                    ),
+                    SizedBox(height: 12.h),
+                    _TimeGrid(
+                      selectedTime: state.selectedTime,
+                      onTimeSelected: viewModel.selectTime,
+                    ),
+                    SizedBox(height: 24.h),
+                  ],
+                ],
+              );
+            case BookingStep2Section.customTime:
+              return Column(
+                key: const ValueKey('customTime'),
+                children: [
+                  if (state.pickupTimeType == 'SCHEDULE') ...[
+                    _CustomTimeButton(
+                      selectedTime: state.selectedTime,
+                      onTimeSelected: viewModel.selectTime,
+                    ),
+                    SizedBox(height: 32.h),
+                  ],
+                ],
+              );
+            case BookingStep2Section.infoBox:
+              return Column(
+                key: const ValueKey('infoBox'),
+                children: [
+                  _InfoBox(text: 'Your chauffeur will wait 15 mins for free at no extra charge'),
+                  SizedBox(height: 32.h),
+                ],
+              );
+            default: return const SizedBox.shrink();
+          }
+        }).toList(),
       ),
     );
   }
@@ -785,6 +885,9 @@ class _BookingStep3 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(bookingViewModelProvider.notifier);
+    final settings = ref.watch(bookingSettingsProvider);
+    
+    final sections = settings.step3Order.where((s) => settings.step3Visibility[s] ?? true).toList();
 
     final filteredVehicles = state.vehicleCategory == 'All' 
         ? state.availableVehicles 
@@ -792,157 +895,163 @@ class _BookingStep3 extends ConsumerWidget {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: 24.w),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Select Vehicle',
-                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 18.sp, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 16.h),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: ['All', 'Sedan', 'SUV', 'Van'].map((cat) => Padding(
-                    padding: EdgeInsets.only(right: 12.w),
-                    child: CategoryTab(
-                      text: cat,
-                      isSelected: state.vehicleCategory == cat,
-                      onClick: () => viewModel.setVehicleCategory(cat),
-                    ),
-                  )).toList(),
-                ),
-              ),
-            ],
-          ),
-        ),
-        SizedBox(height: 16.h),
-        Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 24.w),
-            itemCount: filteredVehicles.length,
-            itemBuilder: (context, index) {
-              final vehicle = filteredVehicles[index];
-              final isSelected = state.selectedVehicle?.id == vehicle.id;
-              
-              return GestureDetector(
-                onTap: () => viewModel.selectVehicle(vehicle),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 300),
-                  curve: Curves.easeInOut,
-                  margin: EdgeInsets.only(bottom: 16.h),
-                  padding: EdgeInsets.all(16.w),
-                  decoration: BoxDecoration(
-                    color: isSelected ? Colors.white : Colors.grey[50], // White when selected for elevation
-                    borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[200]!, width: isSelected ? 2 : 1),
-                    boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))] : null,
+      children: sections.map((section) {
+        switch (section) {
+          case BookingStep3Section.categoryTabs:
+            return Padding(
+              key: const ValueKey('categoryTabs'),
+              padding: EdgeInsets.symmetric(horizontal: 24.w),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Select Vehicle',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 18.sp, fontWeight: FontWeight.bold),
                   ),
-                  child: Stack(
-                    children: [
-                      Column(
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 60.w,
-                                height: 50.h,
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(10.r),
-                                ),
-                                padding: EdgeInsets.all(4.w),
-                                child: Image.network(vehicle.imageUrl, fit: BoxFit.contain),
-                              ),
-                              SizedBox(width: 12.w),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Padding(
-                                      padding: EdgeInsets.only(right: 24.w), // Space for radio button
-                                      child: Text(
-                                        vehicle.name,
-                                        style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 13.sp),
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Text(
-                                      vehicle.model,
-                                      style: TextStyle(color: Colors.grey, fontSize: 10.sp),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          SizedBox(height: 12.h),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Row(
-                                  children: [
-                                    _CapacityChip(icon: 'assets/icons/ic_user.svg', text: '${vehicle.passengers} pax'),
-                                    SizedBox(width: 8.w),
-                                    _CapacityChip(icon: 'assets/icons/ic_location.svg', text: '${vehicle.luggage} bags'),
-                                  ],
-                                ),
-                              ),
-                              FittedBox(
-                                fit: BoxFit.scaleDown,
-                                child: Text(
-                                  '${vehicle.currency} ${vehicle.price.toStringAsFixed(0)}',
-                                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 16.sp),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                  SizedBox(height: 16.h),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: ['All', 'Sedan', 'SUV', 'Van'].map((cat) => Padding(
+                        padding: EdgeInsets.only(right: 12.w),
+                        child: CategoryTab(
+                          text: cat,
+                          isSelected: state.vehicleCategory == cat,
+                          onClick: () => viewModel.setVehicleCategory(cat),
+                        ),
+                      )).toList(),
+                    ),
+                  ),
+                  SizedBox(height: 16.h),
+                ],
+              ),
+            );
+          case BookingStep3Section.vehicleList:
+            return Expanded(
+              key: const ValueKey('vehicleList'),
+              child: ListView.builder(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                itemCount: filteredVehicles.length,
+                itemBuilder: (context, index) {
+                  final vehicle = filteredVehicles[index];
+                  final isSelected = state.selectedVehicle?.id == vehicle.id;
+                  
+                  return GestureDetector(
+                    onTap: () => viewModel.selectVehicle(vehicle),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      margin: EdgeInsets.only(bottom: 16.h),
+                      padding: EdgeInsets.all(16.w),
+                      decoration: BoxDecoration(
+                        color: isSelected ? Colors.white : Colors.grey[50],
+                        borderRadius: BorderRadius.circular(20.r),
+                        border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[200]!, width: isSelected ? 2 : 1),
+                        boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))] : null,
                       ),
-                      Positioned(
-                        right: 0,
-                        top: 4.h, // Slight offset for better vertical alignment with first line of text
-                        child: Container(
-                          width: 20.w,
-                          height: 20.w,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[300]!, width: 2),
+                      child: Stack(
+                        children: [
+                          Column(
+                            children: [
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 60.w,
+                                    height: 50.h,
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(10.r),
+                                    ),
+                                    padding: EdgeInsets.all(4.w),
+                                    child: Image.network(vehicle.imageUrl, fit: BoxFit.contain),
+                                  ),
+                                  SizedBox(width: 12.w),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Padding(
+                                          padding: EdgeInsets.only(right: 24.w),
+                                          child: Text(
+                                            vehicle.name,
+                                            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 13.sp),
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Text(
+                                          vehicle.model,
+                                          style: TextStyle(color: Colors.grey, fontSize: 10.sp),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 12.h),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      children: [
+                                        _CapacityChip(icon: 'assets/icons/ic_user.svg', text: '${vehicle.passengers} pax'),
+                                        SizedBox(width: 8.w),
+                                        _CapacityChip(icon: 'assets/icons/ic_location.svg', text: '${vehicle.luggage} bags'),
+                                      ],
+                                    ),
+                                  ),
+                                  FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      '${vehicle.currency} ${vehicle.price.toStringAsFixed(0)}',
+                                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 16.sp),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          child: Center(
-                            child: AnimatedScale(
-                              scale: isSelected ? 1.0 : 0.0,
-                              duration: const Duration(milliseconds: 200),
-                              curve: Curves.easeOutBack,
-                              child: Container(
-                                width: 10.w,
-                                height: 10.w,
-                                decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary, shape: BoxShape.circle),
+                          Positioned(
+                            right: 0,
+                            top: 4.h,
+                            child: Container(
+                              width: 20.w,
+                              height: 20.w,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[300]!, width: 2),
+                              ),
+                              child: Center(
+                                child: AnimatedScale(
+                                  scale: isSelected ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 200),
+                                  curve: Curves.easeOutBack,
+                                  child: Container(
+                                    width: 10.w,
+                                    height: 10.w,
+                                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary, shape: BoxShape.circle),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          default: return const SizedBox.shrink();
+        }
+      }).toList(),
     );
   }
 }
-
 class _BookingStep4 extends ConsumerWidget {
   final BookingState state;
   const _BookingStep4({required this.state});
@@ -950,108 +1059,156 @@ class _BookingStep4 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(bookingViewModelProvider.notifier);
+    final settings = ref.watch(bookingSettingsProvider);
+    
+    final sections = settings.step4Order.where((s) => settings.step4Visibility[s] ?? true).toList();
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _SummaryCard(state: state),
-          SizedBox(height: 32.h),
-          Text(
-            'Trip Details',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16.h),
-          Row(
-            children: [
-              Expanded(
-                child: CounterItem(
-                  label: 'Passengers',
-                  count: state.passengers,
-                  maxCount: state.selectedVehicle?.passengers ?? 4,
-                  onIncrement: () => viewModel.updatePassengers(state.passengers + 1),
-                  onDecrement: () => viewModel.updatePassengers(state.passengers - 1),
-                ),
-              ),
-              SizedBox(width: 16.w),
-              Expanded(
-                child: CounterItem(
-                  label: 'Luggage',
-                  count: state.luggage,
-                  maxCount: state.selectedVehicle?.luggage ?? 3,
-                  onIncrement: () => viewModel.updateLuggage(state.luggage + 1),
-                  onDecrement: () => viewModel.updateLuggage(state.luggage - 1),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 32.h),
-          Text(
-            'Personal Details',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16.h),
-          Row(
-            children: [
-              Expanded(
-                child: _CustomTextField(
-                  label: 'First Name',
-                  hint: 'John',
-                  value: state.firstName,
-                  onChanged: (v) => viewModel.updateCustomerInfo(firstName: v),
-                ),
-              ),
-              SizedBox(width: 12.w),
-              Expanded(
-                child: _CustomTextField(
-                  label: 'Last Name',
-                  hint: 'Doe',
-                  value: state.lastName,
-                  onChanged: (v) => viewModel.updateCustomerInfo(lastName: v),
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 16.h),
-          _CustomTextField(
-            label: 'Email Address',
-            hint: 'john.doe@example.com',
-            value: state.email,
-            onChanged: (v) => viewModel.updateCustomerInfo(email: v),
-          ),
-          SizedBox(height: 16.h),
-          _CustomTextField(
-            label: 'Phone Number',
-            hint: '+1 234 567 890',
-            value: state.phone,
-            onChanged: (v) => viewModel.updateCustomerInfo(phone: v),
-            keyboardType: TextInputType.phone,
-          ),
-          SizedBox(height: 16.h),
-          _CustomTextField(
-            label: 'Additional Note',
-            hint: 'E.g. Call me when you arrive',
-            value: state.additionalNote,
-            onChanged: (v) => viewModel.updateCustomerInfo(note: v),
-            maxLines: 3,
-          ),
-          SizedBox(height: 32.h),
-          Text(
-            'Payment Method',
-            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
-          ),
-          SizedBox(height: 16.h),
-          ...state.paymentGateways.map((g) => RadioListTile<String>(
-            title: Text(g.title, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp)),
-            value: g.id,
-            groupValue: state.paymentMethod,
-            onChanged: (v) => viewModel.updateCustomerInfo(paymentMethod: v),
-            activeColor: Theme.of(context).colorScheme.secondary,
-            contentPadding: EdgeInsets.zero,
-          )),
-          SizedBox(height: 32.h),
-        ],
+        children: sections.map((section) {
+          switch (section) {
+            case BookingStep4Section.summaryCard:
+              return Column(
+                key: const ValueKey('summaryCard'),
+                children: [
+                   _SummaryCard(state: state),
+                   SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep4Section.tripDetails:
+              return Column(
+                key: const ValueKey('tripDetails'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Trip Details',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CounterItem(
+                          label: 'Passengers',
+                          count: state.passengers,
+                          maxCount: state.selectedVehicle?.passengers ?? 4,
+                          onIncrement: () => viewModel.updatePassengers(state.passengers + 1),
+                          onDecrement: () => viewModel.updatePassengers(state.passengers - 1),
+                        ),
+                      ),
+                      SizedBox(width: 16.w),
+                      Expanded(
+                        child: CounterItem(
+                          label: 'Luggage',
+                          count: state.luggage,
+                          maxCount: state.selectedVehicle?.luggage ?? 3,
+                          onIncrement: () => viewModel.updateLuggage(state.luggage + 1),
+                          onDecrement: () => viewModel.updateLuggage(state.luggage - 1),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep4Section.personalDetails:
+              return Column(
+                key: const ValueKey('personalDetails'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Personal Details',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16.h),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _CustomTextField(
+                          label: 'First Name',
+                          hint: 'John',
+                          value: state.firstName,
+                          onChanged: (v) => viewModel.updateCustomerInfo(firstName: v),
+                        ),
+                      ),
+                      SizedBox(width: 12.w),
+                      Expanded(
+                        child: _CustomTextField(
+                          label: 'Last Name',
+                          hint: 'Doe',
+                          value: state.lastName,
+                          onChanged: (v) => viewModel.updateCustomerInfo(lastName: v),
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 16.h),
+                  _CustomTextField(
+                    label: 'Email Address',
+                    hint: 'john.doe@example.com',
+                    value: state.email,
+                    onChanged: (v) => viewModel.updateCustomerInfo(email: v),
+                  ),
+                  SizedBox(height: 16.h),
+                  _CustomTextField(
+                    label: 'Phone Number',
+                    hint: '+1 234 567 890',
+                    value: state.phone,
+                    onChanged: (v) => viewModel.updateCustomerInfo(phone: v),
+                    keyboardType: TextInputType.phone,
+                  ),
+                  SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep4Section.noteField:
+              return Column(
+                key: const ValueKey('noteField'),
+                children: [
+                  _CustomTextField(
+                    label: 'Additional Note',
+                    hint: 'E.g. Call me when you arrive',
+                    value: state.additionalNote,
+                    onChanged: (v) => viewModel.updateCustomerInfo(note: v),
+                    maxLines: 3,
+                  ),
+                  SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep4Section.paymentMethods:
+              return Column(
+                key: const ValueKey('paymentMethods'),
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Payment Method',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                  ),
+                  SizedBox(height: 16.h),
+                  ...state.paymentGateways.map((g) => RadioListTile<String>(
+                    title: Text(g.title, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp)),
+                    value: g.id,
+                    groupValue: state.paymentMethod,
+                    onChanged: (v) => viewModel.updateCustomerInfo(paymentMethod: v),
+                    activeColor: Theme.of(context).colorScheme.secondary,
+                    contentPadding: EdgeInsets.zero,
+                  )),
+                  SizedBox(height: 32.h),
+                ],
+              );
+            case BookingStep4Section.requirements:
+              return Column(
+                key: const ValueKey('requirements'),
+                children: [
+                   // Add requirements grid if needed, for now just a placeholder container 
+                   // as it wasn't explicitly in the original list but in my enum
+                   SizedBox(height: 32.h),
+                ],
+              );
+            default: return const SizedBox.shrink();
+          }
+        }).toList(),
       ),
     );
   }

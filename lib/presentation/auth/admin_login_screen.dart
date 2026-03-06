@@ -187,11 +187,11 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
                                   style: ElevatedButton.styleFrom(
                                     padding: EdgeInsets.symmetric(vertical: 16.h),
                                     backgroundColor: Theme.of(context).colorScheme.secondary,
-                                    foregroundColor: Theme.of(context).colorScheme.primary,
+                                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                                   ),
                                   child: _isLoading 
-                                      ? SizedBox(height: 20.h, width: 20.h, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.primary))
+                                      ? SizedBox(height: 20.h, width: 20.h, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onSecondary))
                                       : Text('Login', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
                                 ),
                             const Spacer(),
