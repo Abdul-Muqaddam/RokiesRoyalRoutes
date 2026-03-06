@@ -22,7 +22,7 @@ class ForgotPasswordScreen extends ConsumerWidget {
           Image.network(
             'https://storage.googleapis.com/uxpilot-auth.appspot.com/f83471f3ec-dc37248d325e8dbe5c12.png',
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: AppColors.navy),
+            errorBuilder: (context, error, stackTrace) => Container(color: Theme.of(context).colorScheme.primary),
           ),
           
           // Overlay
@@ -82,14 +82,14 @@ class ForgotPasswordScreen extends ConsumerWidget {
                             keyboardType: TextInputType.emailAddress,
                             decoration: InputDecoration(
                               labelText: 'Email Address',
-                              labelStyle: const TextStyle(color: Colors.grey),
+                              labelStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6)),
                               filled: true,
                               fillColor: AppColors.inputFillColor,
                               prefixIcon: Padding(
                                 padding: EdgeInsets.all(12.w),
                                 child: SvgPicture.asset(
                                   'assets/icons/ic_email.svg',
-                                  colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn),
+                                  colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn),
                                   width: 24.w,
                                   height: 24.w,
                                 ),
@@ -100,7 +100,7 @@ class ForgotPasswordScreen extends ConsumerWidget {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12.r),
-                                borderSide: const BorderSide(color: AppColors.gold, width: 2),
+                                borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
                               ),
                             ),
                           ),
@@ -109,7 +109,7 @@ class ForgotPasswordScreen extends ConsumerWidget {
                             SizedBox(height: 16.h),
                             Text(
                               viewModel.successMessage!,
-                              style: TextStyle(color: AppColors.gold, fontSize: 13.sp),
+                              style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 13.sp),
                               textAlign: TextAlign.center,
                             ),
                           ],
@@ -130,8 +130,8 @@ class ForgotPasswordScreen extends ConsumerWidget {
                               onPressed: viewModel.forgotPassword,
                               style: ElevatedButton.styleFrom(
                                 padding: EdgeInsets.symmetric(vertical: 16.h),
-                                backgroundColor: AppColors.gold,
-                                foregroundColor: AppColors.navy,
+                                backgroundColor: Theme.of(context).colorScheme.secondary,
+                                foregroundColor: Theme.of(context).colorScheme.primary,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                               ),
                               child: Text(
@@ -139,15 +139,15 @@ class ForgotPasswordScreen extends ConsumerWidget {
                                 style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
                               ),
                             ),
-                            loading: () => const Center(
-                              child: CircularProgressIndicator(color: AppColors.gold),
+                            loading: () => Center(
+                              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
                             ),
                             error: (err, _) => ElevatedButton(
                               onPressed: viewModel.forgotPassword,
                               style: ElevatedButton.styleFrom(
                                 padding: EdgeInsets.symmetric(vertical: 16.h),
-                                backgroundColor: AppColors.gold,
-                                foregroundColor: AppColors.navy,
+                                backgroundColor: Theme.of(context).colorScheme.secondary,
+                                foregroundColor: Theme.of(context).colorScheme.primary,
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                               ),
                               child: Text(

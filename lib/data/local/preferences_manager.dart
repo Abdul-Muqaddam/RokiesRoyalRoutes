@@ -36,4 +36,17 @@ class PreferencesManager {
   int? getUserId() {
     return _prefs.getInt(_userIdKey);
   }
+
+  static const _adminRememberMeKey = 'admin_remember_me';
+
+  Future<void> saveAdminRememberMe(bool value) async {
+    await _prefs.setBool(_adminRememberMeKey, value);
+  }
+
+  bool getAdminRememberMe() {
+    return _prefs.getBool(_adminRememberMeKey) ?? false;
+  }
+
+  String? getString(String key) => _prefs.getString(key);
+  Future<void> setString(String key, String value) => _prefs.setString(key, value);
 }

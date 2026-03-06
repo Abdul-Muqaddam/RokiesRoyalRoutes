@@ -61,7 +61,7 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             children: [
               Text(
                 'Update Security',
-                style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 24.h),
               _PasswordTextField(
@@ -88,13 +88,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
               ElevatedButton(
                 onPressed: viewModelState is AsyncLoading ? null : _changePassword,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.gold,
-                  foregroundColor: AppColors.navy,
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  foregroundColor: viewModelState is AsyncLoading ? Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5) : Theme.of(context).colorScheme.primary,
                   minimumSize: Size(double.infinity, 54.h),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
                 ),
                 child: viewModelState is AsyncLoading
-                    ? const CircularProgressIndicator(color: AppColors.navy)
+                    ? CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)
                     : Text('Change Password', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
               ),
             ],
@@ -135,18 +135,18 @@ class _PasswordTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.grey, fontSize: 12.sp),
+          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp),
         ),
         SizedBox(height: 4.h),
         TextFormField(
           controller: controller,
           obscureText: obscureText,
           decoration: InputDecoration(
-            prefixIcon: Icon(Icons.lock_outline, color: AppColors.gold, size: 18.w),
+            prefixIcon: Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.secondary, size: 18.w),
             suffixIcon: IconButton(
               icon: Icon(
                 obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                color: AppColors.gold,
+                color: Theme.of(context).colorScheme.secondary,
                 size: 18.w,
               ),
               onPressed: onToggleVisibility,
@@ -159,7 +159,7 @@ class _PasswordTextField extends StatelessWidget {
             ),
             contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           ),
-          style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.w500),
+          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w500),
           validator: (value) {
             if (value == null || value.isEmpty) {
               return 'Please enter your password';

@@ -20,16 +20,16 @@ class InvoiceScreen extends ConsumerWidget {
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.close, color: AppColors.navy, size: 24.w),
+          icon: Icon(Icons.close, color: Theme.of(context).colorScheme.primary, size: 24.w),
           onPressed: () => context.pop(),
         ),
         title: Text(
           'Booking Invoice',
-          style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 18.sp),
+          style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontWeight: FontWeight.bold, fontSize: 16.sp),
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.share_outlined, color: AppColors.navy, size: 22.w),
+            icon: Icon(Icons.share_outlined, color: Theme.of(context).colorScheme.primary, size: 22.w),
             onPressed: () {
               // Share logic
             },
@@ -69,9 +69,9 @@ class InvoiceScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _RoutePoint(label: 'From', value: state.pickupLocation, color: AppColors.gold),
+                        _RoutePoint(label: 'From', value: state.pickupLocation, color: Theme.of(context).colorScheme.secondary),
                         SizedBox(height: 16.h),
-                        _RoutePoint(label: 'To', value: state.destination, color: AppColors.navy),
+                        _RoutePoint(label: 'To', value: state.destination, color: Theme.of(context).colorScheme.primary),
                       ],
                     ),
                   ),
@@ -104,7 +104,7 @@ class InvoiceScreen extends ConsumerWidget {
             ElevatedButton(
               onPressed: () => context.go('/home'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.navy,
+                backgroundColor: Theme.of(context).colorScheme.primary,
                 foregroundColor: Colors.white,
                 minimumSize: Size(double.infinity, 56.h),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
@@ -131,15 +131,15 @@ class _InvoiceHeader extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('INVOICE', style: TextStyle(color: AppColors.navy, fontSize: 24.sp, fontWeight: FontWeight.w900, letterSpacing: 1)),
+            Text('INVOICE', style: TextStyle(color: Theme.of(context).textTheme.displaySmall?.color, fontSize: 24.sp, fontWeight: FontWeight.w900, letterSpacing: 1)),
             if (bookingId != null)
-              Text('REF: #$bookingId', style: TextStyle(color: AppColors.gold, fontSize: 13.sp, fontWeight: FontWeight.bold)),
+              Text('REF: #$bookingId',            style: TextStyle(color: Theme.of(context).textTheme.headlineSmall?.color, fontSize: 20.sp, fontWeight: FontWeight.bold),),
           ],
         ),
         Container(
           padding: EdgeInsets.all(12.w),
-          decoration: BoxDecoration(color: AppColors.navy, borderRadius: BorderRadius.circular(12.r)),
-          child: SvgPicture.asset('assets/icons/ic_car.svg', colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn), width: 24.w),
+          decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(12.r)),
+          child: SvgPicture.asset('assets/icons/ic_car.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 24.w),
         ),
       ],
     );
@@ -156,7 +156,7 @@ class _InvoiceSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: TextStyle(color: Colors.grey, fontSize: 11.sp, fontWeight: FontWeight.bold, letterSpacing: 1)),
+        Text(title, style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 11.sp, fontWeight: FontWeight.bold, letterSpacing: 1)),
         SizedBox(height: 12.h),
         child,
       ],
@@ -176,8 +176,8 @@ class _InvoiceRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13.sp)),
-          Text(value, style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.w600, fontSize: 13.sp)),
+          Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 13.sp)),
+          Text(value, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.w600, fontSize: 13.sp)),
         ],
       ),
     );
@@ -200,8 +200,8 @@ class _RoutePoint extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(label, style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
-              Text(value, style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.w600, fontSize: 13.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 10.sp)),
+              Text(value, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.w600, fontSize: 13.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -223,8 +223,8 @@ class _PriceRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(color: isTotal ? AppColors.navy : Colors.grey[600], fontSize: isTotal ? 16.sp : 14.sp, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal)),
-          Text(value, style: TextStyle(color: isTotal ? AppColors.gold : AppColors.navy, fontSize: isTotal ? 20.sp : 14.sp, fontWeight: FontWeight.bold)),
+          Text(label, style: TextStyle(color: isTotal ? Theme.of(context).colorScheme.primary : Theme.of(context).textTheme.bodySmall?.color, fontSize: isTotal ? 16.sp : 14.sp, fontWeight: isTotal ? FontWeight.bold : FontWeight.normal)),
+          Text(value, style: TextStyle(color: isTotal ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.primary, fontSize: isTotal ? 20.sp : 14.sp, fontWeight: FontWeight.bold)),
         ],
       ),
     );

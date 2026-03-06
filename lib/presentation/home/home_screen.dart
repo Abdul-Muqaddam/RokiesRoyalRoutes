@@ -9,6 +9,7 @@ import '../../data/services/location_service.dart';
 import 'home_view_model.dart';
 import '../trips/trips_screen.dart';
 import '../profile/profile_screen.dart';
+import '../../data/models/home_settings.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -84,7 +85,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildNavItem(int index, String label, String iconPath) {
     final isSelected = _selectedIndex == index;
-    final color = isSelected ? AppColors.gold : Colors.grey;
+    final color = isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey;
 
     return GestureDetector(
       onTap: () => _onItemTapped(index),
@@ -117,7 +118,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
     return homeStateAsync.when(
       data: (state) => _buildDynamicHomeContent(state),
-      loading: () => const Center(child: CircularProgressIndicator(color: AppColors.gold)),
+      loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary)),
       error: (error, stack) => Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -127,7 +128,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             Text('Failed to load home data', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
             TextButton(
               onPressed: () => ref.read(homeViewModelProvider.notifier).refresh(),
-              child: const Text('Retry', style: TextStyle(color: AppColors.gold)),
+              child: Text('Retry', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
             ),
           ],
         ),
@@ -137,210 +138,179 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Widget _buildDynamicHomeContent(HomeState state) {
     final user = state.user;
+    final homeSettings = ref.watch(homeSettingsProvider);
+
+    final sectionWidgets = {
+      HomeSection.header: _buildHeader(user),
+      HomeSection.bookingCard: _buildBookingCard(context),
+      HomeSection.vehicleSelector: _buildVehicleSelector(state),
+      HomeSection.upcomingTrip: state.latestUpcomingTrip != null ? _buildUpcomingTripSection(state.latestUpcomingTrip!) : const SizedBox.shrink(),
+      HomeSection.quickServices: _buildQuickServices(),
+    };
 
     return SafeArea(
       child: SingleChildScrollView(
         padding: EdgeInsets.only(bottom: 24.h),
         child: Column(
+          children: homeSettings.sections.map((section) {
+            if (homeSettings.visibility[section] == false) return const SizedBox.shrink();
+            return sectionWidgets[section] ?? const SizedBox.shrink();
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
+  // Helper methods to clean up _buildDynamicHomeContent
+  Widget _buildHeader(dynamic user) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('Good Morning!', style: TextStyle(color: Colors.grey, fontSize: 12.sp, fontWeight: FontWeight.w500)),
+                SizedBox(height: 4.h),
+                Text('Welcome back, ${user.displayName}', style: TextStyle(color: Theme.of(context).textTheme.titleLarge?.color, fontSize: 18.sp, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          Container(
+            width: 44.w, height: 44.w, padding: EdgeInsets.all(2.w),
+            decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: Theme.of(context).colorScheme.secondary, width: 2.w)),
+            child: ClipOval(child: Image.network(user.avatarUrl, fit: BoxFit.cover, errorBuilder: (context, error, stackTrace) => _buildPlaceholderAvatar())),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBookingCard(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+      child: Container(
+        padding: EdgeInsets.all(20.w),
+        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(24.r)),
+        child: Column(
           children: [
-            // Header
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Current Location', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 12.sp, fontWeight: FontWeight.w500)),
+                      SizedBox(height: 4.h),
+                      ref.watch(currentLocationProvider).when(
+                        data: (location) => Text(location, style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        loading: () => Text('Detecting...', style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                        error: (err, stack) => Text('Location unavailable', style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: 12.w),
+                Container(
+                  width: 40.w, height: 40.w, padding: EdgeInsets.all(10.w),
+                  decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2), shape: BoxShape.circle),
+                  child: SvgPicture.asset('assets/icons/ic_location.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn)),
+                ),
+              ],
+            ),
+            SizedBox(height: 20.h),
+            ElevatedButton(
+              onPressed: () => context.push('/booking'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                minimumSize: Size(double.infinity, 50.h),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                elevation: 0,
+              ),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Good Morning!',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                        SizedBox(height: 4.h),
-                        Text(
-                          'Welcome back, ${user.displayName}',
-                          style: TextStyle(
-                            color: AppColors.navy,
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    width: 44.w,
-                    height: 44.w,
-                    padding: EdgeInsets.all(2.w),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppColors.gold, width: 2.w),
-                    ),
-                    child: ClipOval(
-                      child: Image.network(
-                        user.avatarUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => _buildPlaceholderAvatar(),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Booking Card
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
-              child: Container(
-                padding: EdgeInsets.all(20.w),
-                decoration: BoxDecoration(
-                  color: AppColors.navy,
-                  borderRadius: BorderRadius.circular(24.r),
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    'Current Location',
-                                    style: TextStyle(color: AppColors.gold, fontSize: 12.sp, fontWeight: FontWeight.w500),
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: 4.h),
-                              ref.watch(currentLocationProvider).when(
-                                data: (location) => Text(
-                                  location,
-                                  style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                loading: () => Text(
-                                  'Detecting...',
-                                  style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600),
-                                ),
-                                error: (err, stack) => Text(
-                                  'Location unavailable',
-                                  style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(width: 12.w),
-                        Container(
-                          width: 40.w,
-                          height: 40.w,
-                          padding: EdgeInsets.all(10.w),
-                          decoration: BoxDecoration(
-                            color: AppColors.gold.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: SvgPicture.asset(
-                            'assets/icons/ic_location.svg',
-                            colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn),
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: 20.h),
-                    ElevatedButton(
-                      onPressed: () => context.push('/booking'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.gold,
-                        foregroundColor: AppColors.navy,
-                        minimumSize: Size(double.infinity, 50.h),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                        elevation: 0,
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          SvgPicture.asset('assets/icons/ic_plus.svg', width: 18.w, colorFilter: const ColorFilter.mode(AppColors.navy, BlendMode.srcIn)),
-                          SizedBox(width: 8.w),
-                          Text('Book a Ride', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Vehicle Selector
-            SizedBox(height: 20.h),
-            _buildSectionHeader('Select Vehicle'),
-            SizedBox(height: 10.h),
-            SizedBox(
-              height: 180.h,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                itemCount: state.vehicles.length,
-                separatorBuilder: (context, index) => SizedBox(width: 10.w),
-                itemBuilder: (context, index) {
-                  final vehicle = state.vehicles[index];
-                  return _buildVehicleItem(vehicle.name, vehicle.imageUrl, vehicle.passengers);
-                },
-              ),
-            ),
-
-            // Upcoming Trip
-            if (state.latestUpcomingTrip != null) ...[
-              SizedBox(height: 20.h),
-              _buildSectionHeader('Upcoming Trip', trailing: 'See All'),
-              SizedBox(height: 10.h),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: _buildUpcomingTripCard(state.latestUpcomingTrip!),
-              ),
-            ],
-
-            // Quick Services
-            SizedBox(height: 20.h),
-            _buildSectionHeader('Quick Services'),
-            SizedBox(height: 10.h),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16.w),
-              child: Column(
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildQuickAction('Airport Transfer', 'Book now', 'assets/icons/ic_flight.svg')),
-                      SizedBox(width: 8.w),
-                      Expanded(child: _buildQuickAction('Hourly Charter', 'Flexible time', 'assets/icons/ic_clock.svg')),
-                    ],
-                  ),
-                  SizedBox(height: 8.w),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildQuickAction('Corporate Travel', 'Business class', 'assets/icons/ic_car.svg')),
-                      SizedBox(width: 8.w),
-                      Expanded(child: _buildQuickAction('Special Events', 'Custom ride', 'assets/icons/ic_calendar.svg')),
-                    ],
-                  ),
+                  SvgPicture.asset('assets/icons/ic_plus.svg', width: 18.w, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.primary, BlendMode.srcIn)),
+                  SizedBox(width: 8.w),
+                  Text('Book a Ride', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildVehicleSelector(HomeState state) {
+    return Column(
+      children: [
+        SizedBox(height: 20.h),
+        _buildSectionHeader('Select Vehicle'),
+        SizedBox(height: 10.h),
+        SizedBox(
+          height: 180.h,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            itemCount: state.vehicles.length,
+            separatorBuilder: (context, index) => SizedBox(width: 10.w),
+            itemBuilder: (context, index) {
+              final vehicle = state.vehicles[index];
+              return _buildVehicleItem(vehicle.name, vehicle.imageUrl, vehicle.passengers);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUpcomingTripSection(Trip trip) {
+    return Column(
+      children: [
+        SizedBox(height: 20.h),
+        _buildSectionHeader('Upcoming Trip', trailing: 'See All'),
+        SizedBox(height: 10.h),
+        Padding(padding: EdgeInsets.symmetric(horizontal: 16.w), child: _buildUpcomingTripCard(trip)),
+      ],
+    );
+  }
+
+  Widget _buildQuickServices() {
+    return Column(
+      children: [
+        SizedBox(height: 20.h),
+        _buildSectionHeader('Quick Services'),
+        SizedBox(height: 10.h),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: Column(
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildQuickAction('Airport Transfer', 'Book now', 'assets/icons/ic_flight.svg')),
+                  SizedBox(width: 8.w),
+                  Expanded(child: _buildQuickAction('Hourly Charter', 'Flexible time', 'assets/icons/ic_clock.svg')),
+                ],
+              ),
+              SizedBox(height: 8.w),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildQuickAction('Corporate Travel', 'Business class', 'assets/icons/ic_car.svg')),
+                  SizedBox(width: 8.w),
+                  Expanded(child: _buildQuickAction('Special Events', 'Custom ride', 'assets/icons/ic_calendar.svg')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -352,14 +322,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Text(
             title,
-            style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.bold),
           ),
           if (trailing != null)
             TextButton(
               onPressed: () => _onItemTapped(1),
               child: Text(
                 trailing,
-                style: TextStyle(color: AppColors.gold, fontSize: 11.sp, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 11.sp, fontWeight: FontWeight.bold),
               ),
             ),
         ],
@@ -376,13 +346,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             height: 110.h,
             padding: EdgeInsets.all(12.w),
             decoration: BoxDecoration(
-              color: AppColors.goldLight,
+              color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16.r),
             ),
             child: Image.network(imageUrl, fit: BoxFit.contain),
           ),
           SizedBox(height: 8.h),
-          Text(name, style: TextStyle(color: AppColors.navy, fontSize: 12.sp, fontWeight: FontWeight.w600)),
+          Text(name, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 12.sp, fontWeight: FontWeight.w600)),
           Text('$passengers Passengers', style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
         ],
       ),
@@ -423,7 +393,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ],
                     ),
                     SizedBox(height: 8.h),
-                    Text(trip.title, style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.bold)),
+                    Text(trip.title, style: TextStyle(color: Theme.of(context).textTheme.titleSmall?.color, fontSize: 14.sp, fontWeight: FontWeight.bold)),
                     SizedBox(height: 4.h),
                     Text(trip.dateTime, style: TextStyle(color: Colors.grey, fontSize: 12.sp)),
                   ],
@@ -433,8 +403,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 width: 56.w,
                 height: 56.w,
                 padding: EdgeInsets.all(12.w),
-                decoration: BoxDecoration(color: AppColors.goldLight, borderRadius: BorderRadius.circular(12.r)),
-                child: SvgPicture.asset('assets/icons/ic_flight.svg', colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn)),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12.r)),
+                child: SvgPicture.asset('assets/icons/ic_flight.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn)),
               ),
             ],
           ),
@@ -474,11 +444,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         children: [
           Container(
             padding: EdgeInsets.all(10.w),
-            decoration: BoxDecoration(color: AppColors.goldLight, borderRadius: BorderRadius.circular(12.r)),
-            child: SvgPicture.asset(iconAsset, colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn), width: 20.w, height: 20.w),
+            decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12.r)),
+            child: SvgPicture.asset(iconAsset, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 20.w, height: 20.w),
           ),
           SizedBox(height: 10.h),
-          Text(title, style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 14.sp)),
+          Text(title, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 14.sp)),
           SizedBox(height: 4.h),
           Text(subtitle, style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
         ],

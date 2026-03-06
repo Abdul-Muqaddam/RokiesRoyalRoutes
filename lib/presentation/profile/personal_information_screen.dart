@@ -82,7 +82,7 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
               children: [
                 Text(
                   'Profile Details',
-                  style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w500),
                 ),
                 SizedBox(height: 16.h),
                 _InfoTextField(
@@ -145,21 +145,21 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
                 ElevatedButton(
                   onPressed: viewModelState is AsyncLoading ? null : _saveChanges,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.gold,
-                    foregroundColor: AppColors.navy,
+                    backgroundColor: Theme.of(context).colorScheme.secondary,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     minimumSize: Size(double.infinity, 54.h),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
                   ),
                   child: viewModelState is AsyncLoading
-                      ? const CircularProgressIndicator(color: AppColors.navy)
-                      : Text('Save Changes', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
+                      ? CircularProgressIndicator(color: Theme.of(context).colorScheme.primary)
+                      : Text('Save Changes', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 15.sp, fontWeight: FontWeight.bold)),
                 ),
                 SizedBox(height: 24.h),
               ],
             ),
           ),
         ),
-        loading: () => const Center(child: CircularProgressIndicator(color: AppColors.gold)),
+        loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary)),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
     );
@@ -202,7 +202,7 @@ class _InfoTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(color: Colors.grey, fontSize: 12.sp),
+          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp),
         ),
         SizedBox(height: 4.h),
         TextFormField(
@@ -210,7 +210,7 @@ class _InfoTextField extends StatelessWidget {
           readOnly: readOnly,
           maxLines: maxLines,
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: AppColors.gold, size: 18.w),
+            prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 18.w),
             filled: true,
             fillColor: AppColors.lightGray,
             border: OutlineInputBorder(
@@ -220,7 +220,7 @@ class _InfoTextField extends StatelessWidget {
             contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
           ),
           style: TextStyle(
-            color: readOnly ? Colors.grey : AppColors.navy,
+            color: readOnly ? Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5) : Theme.of(context).textTheme.bodyMedium?.color,
             fontSize: 14.sp,
             fontWeight: FontWeight.w500,
           ),

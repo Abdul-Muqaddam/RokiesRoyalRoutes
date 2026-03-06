@@ -47,10 +47,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       if (response.success && mounted) {
         context.go('/home');
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.message, style: const TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.message, style: TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString(), style: const TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString(), style: TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -87,19 +87,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       style: const TextStyle(color: AppColors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
+        labelStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6)),
         filled: true,
         fillColor: AppColors.inputFillColor,
         prefixIcon: Padding(
           padding: EdgeInsets.all(12.w),
-          child: SvgPicture.asset(iconAsset, colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn), width: 24.w, height: 24.w),
+          child: SvgPicture.asset(iconAsset, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 24.w, height: 24.w),
         ),
         suffixIcon: (isPassword || isConfirmPassword) ? IconButton(
           icon: SvgPicture.asset(
             (isPassword ? _passwordVisible : _confirmPasswordVisible) 
                 ? 'assets/icons/ic_eye.svg' 
                 : 'assets/icons/ic_eye_off.svg',
-            colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn),
             width: 24.w, height: 24.w,
           ),
           onPressed: () {
@@ -118,7 +118,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
-          borderSide: const BorderSide(color: AppColors.gold, width: 2),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
         ),
       ),
     );
@@ -133,7 +133,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
           Image.network(
             'https://storage.googleapis.com/uxpilot-auth.appspot.com/95454c7c78-e74374d6e8bc6d12792c.png',
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: AppColors.navy), // fallback
+            errorBuilder: (context, error, stackTrace) => Container(color: Theme.of(context).colorScheme.primary), // fallback
           ),
           Container(color: Colors.black.withValues(alpha: 0.6)), // Overlay
           SafeArea(
@@ -166,13 +166,13 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             SizedBox(height: 40.h),
 
                             _isLoading 
-                              ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                              ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary))
                               : ElevatedButton(
                                   onPressed: _register,
                                   style: ElevatedButton.styleFrom(
                                     padding: EdgeInsets.symmetric(vertical: 16.h),
-                                    backgroundColor: AppColors.gold,
-                                    foregroundColor: AppColors.navy,
+                                    backgroundColor: Theme.of(context).colorScheme.secondary,
+                                    foregroundColor: Theme.of(context).colorScheme.primary,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                                   ),
                                   child: Text('Register', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
@@ -187,7 +187,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                                   Text("Already have an account? ", style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
                                   GestureDetector(
                                     onTap: () => context.pop(), // pop back to login
-                                    child: Text('Login', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14.sp)),
+                                    child: Text('Login', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 14.sp)),
                                   )
                                 ],
                               ),

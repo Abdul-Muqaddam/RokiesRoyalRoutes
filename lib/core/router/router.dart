@@ -13,6 +13,10 @@ import '../../presentation/profile/change_password_screen.dart';
 import '../../presentation/booking/booking_screen.dart';
 import '../../presentation/booking/booking_success_screen.dart';
 import '../../presentation/booking/invoice_screen.dart';
+import '../../presentation/auth/admin_login_screen.dart';
+import '../../presentation/customization/customization_screen.dart';
+import '../../presentation/home/home_screen_customization_screen.dart';
+import '../../presentation/profile/profile_customization_screen.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -65,6 +69,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/invoice',
         builder: (context, state) => const InvoiceScreen(),
+      ),
+      GoRoute(
+        path: '/admin-login',
+        builder: (context, state) => const AdminLoginScreen(),
+      ),
+      GoRoute(
+        path: '/customization',
+        builder: (context, state) => const CustomizationScreen(),
+      ),
+      GoRoute(
+        path: '/home-customization',
+        builder: (context, state) => const HomeScreenCustomizationScreen(),
+      ),
+      GoRoute(
+        path: '/profile-customization',
+        builder: (context, state) => const ProfileCustomizationScreen(),
       ),
     ],
   );

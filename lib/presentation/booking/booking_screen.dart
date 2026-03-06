@@ -88,7 +88,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.navy),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).textTheme.bodyMedium?.color),
           onPressed: () {
             if (state.currentStep > 0) {
               ref.read(bookingViewModelProvider.notifier).prevStep();
@@ -99,7 +99,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         ),
         title: Text(
           'Book a Ride',
-          style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 18.sp),
+          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 18.sp),
         ),
         centerTitle: true,
       ),
@@ -141,7 +141,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
                   height: 6.h,
                   margin: EdgeInsets.only(right: index < 3 ? 12.w : 0),
                   decoration: BoxDecoration(
-                    color: (isActive || isCompleted) ? AppColors.gold : Colors.grey[300],
+                    color: (isActive || isCompleted) ? Theme.of(context).colorScheme.secondary : Colors.grey[300],
                     borderRadius: BorderRadius.circular(10.r),
                   ),
                 ),
@@ -193,14 +193,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
             }
           } : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.gold,
-            foregroundColor: AppColors.navy,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            foregroundColor: Theme.of(context).textTheme.bodyMedium?.color,
             minimumSize: Size(double.infinity, 56.h),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
             elevation: 0,
           ),
           child: state.isLoading 
-            ? const CircularProgressIndicator(color: AppColors.navy)
+            ? CircularProgressIndicator(color: Theme.of(context).textTheme.bodyMedium?.color)
             : Text(buttonText, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
         ),
       ),
@@ -223,12 +223,12 @@ class _BookingStep1 extends ConsumerWidget {
         children: [
           Text(
             'Where are we going?',
-            style: TextStyle(color: AppColors.navy, fontSize: 22.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 22.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8.h),
           Text(
             'Enter your pickup and destination details',
-            style: TextStyle(color: Colors.grey, fontSize: 14.sp),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontSize: 14.sp),
           ),
           SizedBox(height: 32.h),
           
@@ -248,7 +248,7 @@ class _BookingStep1 extends ConsumerWidget {
               padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
               child: Text(
                 'Choose your current location',
-                style: TextStyle(color: AppColors.gold, fontSize: 13.sp, fontWeight: FontWeight.w500),
+                style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 13.sp, fontWeight: FontWeight.w500),
               ),
             ),
           ),
@@ -257,7 +257,7 @@ class _BookingStep1 extends ConsumerWidget {
             label: 'Destination',
             hint: 'To where?',
             icon: 'assets/icons/ic_location.svg',
-            iconColor: AppColors.gold,
+            iconColor: Theme.of(context).colorScheme.secondary,
             value: state.destination,
             onChanged: viewModel.updateDestination,
             suggestions: state.destinationSuggestions,
@@ -266,11 +266,11 @@ class _BookingStep1 extends ConsumerWidget {
           
           SizedBox(height: 24.h),
           
-          _buildCalculateButton(viewModel, state),
+          _buildCalculateButton(context, viewModel, state),
           
           if (state.distance != null) ...[
             SizedBox(height: 24.h),
-            _buildDistanceCard(state),
+            _buildDistanceCard(context, state),
           ] else if (state.error != null) ...[
             SizedBox(height: 16.h),
             Padding(
@@ -286,12 +286,12 @@ class _BookingStep1 extends ConsumerWidget {
           _buildSaveLocationSection(context, viewModel, state),
           
           SizedBox(height: 32.h),
-          _buildSavedPlacesSection(viewModel, state),
+          _buildSavedPlacesSection(context, viewModel, state),
           
           SizedBox(height: 32.h),
           Text(
             'Recent Destinations',
-            style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16.h),
           ... (state.showAllRecent 
@@ -313,7 +313,7 @@ class _BookingStep1 extends ConsumerWidget {
                 child: Text(
                   state.showAllRecent ? 'Show Less' : 'Show More',
                   style: TextStyle(
-                    color: AppColors.gold, 
+                    color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8), 
                     fontWeight: FontWeight.bold,
                     fontSize: 14.sp,
                   ),
@@ -325,7 +325,7 @@ class _BookingStep1 extends ConsumerWidget {
     );
   }
 
-  Widget _buildSavedPlacesSection(BookingViewModel viewModel, BookingState state) {
+  Widget _buildSavedPlacesSection(BuildContext context, BookingViewModel viewModel, BookingState state) {
     if (state.savedPlaces.isEmpty) return const SizedBox.shrink();
     
     return Column(
@@ -333,7 +333,7 @@ class _BookingStep1 extends ConsumerWidget {
       children: [
         Text(
           'Saved Places',
-          style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold),
+          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 16.h),
         ...state.savedPlaces.map((item) => _SavedPlaceCard(
@@ -344,12 +344,12 @@ class _BookingStep1 extends ConsumerWidget {
     );
   }
 
-  Widget _buildCalculateButton(BookingViewModel viewModel, BookingState state) {
+  Widget _buildCalculateButton(BuildContext context, BookingViewModel viewModel, BookingState state) {
     final isEnabled = state.pickupLocation.isNotEmpty && state.destination.isNotEmpty;
     return ElevatedButton(
       onPressed: isEnabled ? viewModel.calculateDistance : null,
       style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.navy,
+        backgroundColor: Theme.of(context).textTheme.bodyMedium?.color,
         foregroundColor: Colors.white,
         minimumSize: Size(double.infinity, 50.h),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
@@ -358,7 +358,7 @@ class _BookingStep1 extends ConsumerWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          SvgPicture.asset('assets/icons/ic_location.svg', colorFilter: ColorFilter.mode(isEnabled ? AppColors.gold : Colors.grey, BlendMode.srcIn), width: 18.w),
+          SvgPicture.asset('assets/icons/ic_location.svg', colorFilter: ColorFilter.mode(isEnabled ? Theme.of(context).colorScheme.secondary : Colors.grey, BlendMode.srcIn), width: 18.w),
           SizedBox(width: 8.w),
           Text('Calculate Distance', style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold)),
         ],
@@ -366,13 +366,13 @@ class _BookingStep1 extends ConsumerWidget {
     );
   }
 
-  Widget _buildDistanceCard(BookingState state) {
+  Widget _buildDistanceCard(BuildContext context, BookingState state) {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF9E7), // Very light gold
         borderRadius: BorderRadius.circular(20.r),
-        border: Border.all(color: AppColors.gold.withOpacity(0.2)),
+        border: Border.all(color: Theme.of(context).colorScheme.secondary.withOpacity(0.2)),
       ),
       child: Row(
         children: [
@@ -390,9 +390,9 @@ class _BookingStep1 extends ConsumerWidget {
       children: [
         Row(
           children: [
-            SvgPicture.asset('assets/icons/ic_location.svg', colorFilter: ColorFilter.mode(AppColors.gold, BlendMode.srcIn), width: 14.w),
+            SvgPicture.asset('assets/icons/ic_location.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 14.w),
             SizedBox(width: 8.w),
-            Text('Save Pickup Location', style: TextStyle(color: AppColors.navy, fontSize: 13.sp, fontWeight: FontWeight.w600)),
+            Text('Save Pickup Location', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.w600)),
           ],
         ),
         SizedBox(height: 12.h),
@@ -419,7 +419,7 @@ class _BookingStep1 extends ConsumerWidget {
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.white,
-        title: Text('Save Custom Place', style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold)),
+        title: Text('Save Custom Place', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,13 +430,13 @@ class _BookingStep1 extends ConsumerWidget {
               controller: controller,
               decoration: InputDecoration(
                 hintText: 'e.g. Gym',
-                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: AppColors.gold)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary)),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: Colors.grey))),
+          TextButton(onPressed: () => Navigator.pop(context), child: Text('Cancel', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6)))),
           TextButton(
             onPressed: () {
               if (controller.text.isNotEmpty) {
@@ -444,7 +444,7 @@ class _BookingStep1 extends ConsumerWidget {
                 Navigator.pop(context);
               }
             },
-            child: Text('Save', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold)),
+            child: Text('Save', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -478,7 +478,7 @@ class _LocationField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.w600)),
+        Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w600)),
         SizedBox(height: 8.h),
         TextField(
           controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)),
@@ -542,7 +542,7 @@ class _BookingStep2 extends ConsumerWidget {
         children: [
           Text(
             'Pickup Time',
-            style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 12.h),
           Row(
@@ -568,7 +568,7 @@ class _BookingStep2 extends ConsumerWidget {
             SizedBox(height: 32.h),
             Text(
               'Select Date',
-              style: TextStyle(color: AppColors.navy, fontSize: 13.sp, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 12.h),
             _DateSelector(
@@ -578,7 +578,7 @@ class _BookingStep2 extends ConsumerWidget {
             SizedBox(height: 32.h),
             Text(
               'Select Time',
-              style: TextStyle(color: AppColors.navy, fontSize: 13.sp, fontWeight: FontWeight.bold),
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 12.h),
             _TimeGrid(
@@ -613,15 +613,15 @@ class _TimeTypeButton extends StatelessWidget {
       child: Container(
         height: 48.h,
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.gold : Colors.grey[50],
+          color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[50],
           borderRadius: BorderRadius.circular(12.r),
-          border: Border.all(color: isSelected ? AppColors.gold : Colors.grey[200]!),
+          border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[200]!),
         ),
         child: Center(
           child: Text(
             text,
             style: TextStyle(
-              color: isSelected ? AppColors.navy : Colors.grey,
+              color: isSelected ? Theme.of(context).textTheme.bodyMedium?.color : Colors.grey,
               fontWeight: FontWeight.bold,
               fontSize: 14.sp,
             ),
@@ -659,11 +659,11 @@ class _DateSelector extends StatelessWidget {
         ),
         child: Row(
           children: [
-            const Icon(Icons.calendar_today, color: AppColors.gold, size: 20),
+            Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.secondary, size: 20),
             SizedBox(width: 12.w),
             Text(
               '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
-              style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.w600, fontSize: 14.sp),
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.w600, fontSize: 14.sp),
             ),
             const Spacer(),
             const Icon(Icons.arrow_forward_ios, color: Colors.grey, size: 14),
@@ -700,15 +700,15 @@ class _TimeGrid extends StatelessWidget {
           onTap: () => onTimeSelected(time),
           child: Container(
             decoration: BoxDecoration(
-              color: isSelected ? AppColors.gold : Colors.grey[50],
+              color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[50],
               borderRadius: BorderRadius.circular(10.r),
-              border: Border.all(color: isSelected ? AppColors.gold : Colors.grey[200]!),
+              border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[200]!),
             ),
             alignment: Alignment.center,
             child: Text(
               time,
               style: TextStyle(
-                color: isSelected ? AppColors.navy : Colors.grey[600],
+                color: isSelected ? Theme.of(context).textTheme.bodyMedium?.color : Colors.grey[600],
                 fontWeight: FontWeight.bold,
                 fontSize: 12.sp,
               ),
@@ -739,10 +739,10 @@ class _CustomTimeButton extends StatelessWidget {
             onTimeSelected(time.format(context));
           }
         },
-        icon: const Icon(Icons.access_time, color: AppColors.gold, size: 18),
+        icon: Icon(Icons.access_time, color: Theme.of(context).colorScheme.secondary, size: 18),
         label: Text(
           'Choose custom time',
-          style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14.sp),
+          style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 14.sp),
         ),
       ),
     );
@@ -758,13 +758,13 @@ class _InfoBox extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(16.w),
       decoration: BoxDecoration(
-        color: AppColors.gold.withOpacity(0.1),
+        color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
         borderRadius: BorderRadius.circular(16.r),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: AppColors.gold, size: 20),
+          Icon(Icons.info_outline, color: Theme.of(context).colorScheme.secondary, size: 20),
           SizedBox(width: 12.w),
           Expanded(
             child: Text(
@@ -800,7 +800,7 @@ class _BookingStep3 extends ConsumerWidget {
             children: [
               Text(
                 'Select Vehicle',
-                style: TextStyle(color: AppColors.navy, fontSize: 18.sp, fontWeight: FontWeight.bold),
+                style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 18.sp, fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 16.h),
               SingleChildScrollView(
@@ -838,7 +838,7 @@ class _BookingStep3 extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: isSelected ? Colors.white : Colors.grey[50], // White when selected for elevation
                     borderRadius: BorderRadius.circular(20.r),
-                    border: Border.all(color: isSelected ? AppColors.gold : Colors.grey[200]!, width: isSelected ? 2 : 1),
+                    border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[200]!, width: isSelected ? 2 : 1),
                     boxShadow: isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))] : null,
                   ),
                   child: Stack(
@@ -852,7 +852,7 @@ class _BookingStep3 extends ConsumerWidget {
                                 width: 60.w,
                                 height: 50.h,
                                 decoration: BoxDecoration(
-                                  color: AppColors.gold.withOpacity(0.1),
+                                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(10.r),
                                 ),
                                 padding: EdgeInsets.all(4.w),
@@ -867,7 +867,7 @@ class _BookingStep3 extends ConsumerWidget {
                                       padding: EdgeInsets.only(right: 24.w), // Space for radio button
                                       child: Text(
                                         vehicle.name,
-                                        style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 13.sp),
+                                        style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 13.sp),
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
                                       ),
@@ -900,7 +900,7 @@ class _BookingStep3 extends ConsumerWidget {
                                 fit: BoxFit.scaleDown,
                                 child: Text(
                                   '${vehicle.currency} ${vehicle.price.toStringAsFixed(0)}',
-                                  style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 16.sp),
+                                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 16.sp),
                                 ),
                               ),
                             ],
@@ -915,7 +915,7 @@ class _BookingStep3 extends ConsumerWidget {
                           height: 20.w,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: isSelected ? AppColors.gold : Colors.grey[300]!, width: 2),
+                            border: Border.all(color: isSelected ? Theme.of(context).colorScheme.secondary : Colors.grey[300]!, width: 2),
                           ),
                           child: Center(
                             child: AnimatedScale(
@@ -925,7 +925,7 @@ class _BookingStep3 extends ConsumerWidget {
                               child: Container(
                                 width: 10.w,
                                 height: 10.w,
-                                decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                                decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary, shape: BoxShape.circle),
                               ),
                             ),
                           ),
@@ -960,7 +960,7 @@ class _BookingStep4 extends ConsumerWidget {
           SizedBox(height: 32.h),
           Text(
             'Trip Details',
-            style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16.h),
           Row(
@@ -989,7 +989,7 @@ class _BookingStep4 extends ConsumerWidget {
           SizedBox(height: 32.h),
           Text(
             'Personal Details',
-            style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16.h),
           Row(
@@ -1039,15 +1039,15 @@ class _BookingStep4 extends ConsumerWidget {
           SizedBox(height: 32.h),
           Text(
             'Payment Method',
-            style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 16.h),
           ...state.paymentGateways.map((g) => RadioListTile<String>(
-            title: Text(g.title, style: TextStyle(color: AppColors.navy, fontSize: 14.sp)),
+            title: Text(g.title, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp)),
             value: g.id,
             groupValue: state.paymentMethod,
             onChanged: (v) => viewModel.updateCustomerInfo(paymentMethod: v),
-            activeColor: AppColors.gold,
+            activeColor: Theme.of(context).colorScheme.secondary,
             contentPadding: EdgeInsets.zero,
           )),
           SizedBox(height: 32.h),
@@ -1066,7 +1066,7 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(20.w),
       decoration: BoxDecoration(
-        color: AppColors.navy,
+        color: Theme.of(context).textTheme.bodyMedium?.color,
         borderRadius: BorderRadius.circular(24.r),
       ),
       child: Column(
@@ -1097,7 +1097,7 @@ class _SummaryCard extends StatelessWidget {
                     fit: BoxFit.scaleDown,
                     child: Text(
                       '${state.selectedVehicle?.currency} ${state.selectedVehicle?.price.toStringAsFixed(0)}', 
-                      style: TextStyle(color: AppColors.gold, fontSize: 18.sp, fontWeight: FontWeight.bold)
+                      style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 18.sp, fontWeight: FontWeight.bold)
                     ),
                   ),
                 ],
@@ -1132,7 +1132,7 @@ class _DistanceInfo extends StatelessWidget {
         Text(
           label, 
           style: TextStyle(
-            color: AppColors.navy, 
+            color: Theme.of(context).textTheme.bodyMedium?.color, 
             fontSize: 12.sp, 
             fontWeight: FontWeight.bold
           ),
@@ -1146,7 +1146,7 @@ class _DistanceInfo extends StatelessWidget {
             child: Text(
               value, 
               style: TextStyle(
-                color: AppColors.gold, 
+                color: Theme.of(context).colorScheme.secondary, 
                 fontSize: 20.sp, 
                 fontWeight: FontWeight.bold
               ),
@@ -1182,14 +1182,14 @@ class _SaveLocationButton extends StatelessWidget {
           children: [
             SvgPicture.asset(
               icon, 
-              colorFilter: ColorFilter.mode(AppColors.gold, BlendMode.srcIn), 
+              colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), 
               width: 14.w,
               height: 14.w,
             ),
             SizedBox(width: 4.w),
             Text(
               label == 'Custom' ? '+ Custom' : label, 
-              style: TextStyle(color: AppColors.gold, fontSize: 11.sp, fontWeight: FontWeight.w500),
+              style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 11.sp, fontWeight: FontWeight.w500),
             ),
           ],
         ),
@@ -1249,7 +1249,7 @@ class CounterItem extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _CounterButton(icon: Icons.remove, onTap: count > 1 || (label == 'Luggage' && count > 0) ? onDecrement : null),
-              Text('$count', style: TextStyle(color: AppColors.navy, fontSize: 16.sp, fontWeight: FontWeight.bold)),
+              Text('$count', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold)),
               _CounterButton(icon: Icons.add, onTap: count < maxCount ? onIncrement : null),
             ],
           ),
@@ -1271,10 +1271,10 @@ class _CounterButton extends StatelessWidget {
       child: Container(
         padding: EdgeInsets.all(4.w),
         decoration: BoxDecoration(
-          color: onTap != null ? AppColors.gold.withOpacity(0.1) : Colors.grey[100],
+          color: onTap != null ? Theme.of(context).colorScheme.secondary.withOpacity(0.1) : Colors.grey[100],
           shape: BoxShape.circle,
         ),
-        child: Icon(icon, color: onTap != null ? AppColors.gold : Colors.grey, size: 18),
+        child: Icon(icon, color: onTap != null ? Theme.of(context).colorScheme.secondary : Colors.grey, size: 18),
       ),
     );
   }
@@ -1325,7 +1325,7 @@ class _CustomTextField extends StatelessWidget {
           onChanged: onChanged,
           keyboardType: keyboardType,
           maxLines: maxLines,
-          style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.w600),
+          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14.sp),
@@ -1354,7 +1354,7 @@ class CategoryTab extends StatelessWidget {
         height: 36.h,
         padding: EdgeInsets.symmetric(horizontal: 16.w),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.navy : Colors.grey[100],
+          color: isSelected ? Theme.of(context).textTheme.bodyMedium?.color : Colors.grey[100],
           borderRadius: BorderRadius.circular(12.r),
         ),
         alignment: Alignment.center,
@@ -1411,7 +1411,7 @@ class _RecentDestinationCard extends StatelessWidget {
                   Text(
                     title,
                     style: TextStyle(
-                      color: AppColors.navy,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontSize: 14.sp,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1461,12 +1461,12 @@ class _SavedPlaceCard extends StatelessWidget {
             Container(
               padding: EdgeInsets.all(10.w),
               decoration: BoxDecoration(
-                color: AppColors.gold.withOpacity(0.1),
+                color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
                 isHome ? Icons.home : (isWork ? Icons.work : Icons.location_on),
-                color: AppColors.gold,
+                color: Theme.of(context).colorScheme.secondary,
                 size: 24.w,
               ),
             ),
@@ -1478,7 +1478,7 @@ class _SavedPlaceCard extends StatelessWidget {
                   Text(
                     item.name,
                     style: TextStyle(
-                      color: AppColors.navy,
+                      color: Theme.of(context).textTheme.bodyMedium?.color,
                       fontSize: 16.sp,
                       fontWeight: FontWeight.bold,
                     ),

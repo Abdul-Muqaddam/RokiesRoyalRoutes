@@ -34,6 +34,18 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<AuthResponse> adminLogin(String username, String password) async {
+    final request = LoginRequest(username: username, password: password);
+    final response = await _apiService.adminLogin(request);
+    
+    // Only save the token if it's necessary for the admin UI session
+    if (response.success && response.token.isNotEmpty) {
+      await _preferencesManager.saveToken(response.token);
+    }
+    return response;
+  }
+
+  @override
   Future<AuthResponse> register(RegisterRequest request) async {
     final response = await _apiService.register(request);
     

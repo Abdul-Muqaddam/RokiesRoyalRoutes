@@ -29,10 +29,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       if (response.success && mounted) {
         context.go('/home');
       } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.message, style: const TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.message, style: TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString(), style: const TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString(), style: TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -57,17 +57,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       style: const TextStyle(color: AppColors.white),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: Colors.grey),
+        labelStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6)),
         filled: true,
         fillColor: AppColors.inputFillColor,
         prefixIcon: Padding(
           padding: EdgeInsets.all(12.w),
-          child: SvgPicture.asset(iconAsset, colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn), width: 24.w, height: 24.w),
+          child: SvgPicture.asset(iconAsset, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 24.w, height: 24.w),
         ),
         suffixIcon: isPassword ? IconButton(
           icon: SvgPicture.asset(
             _passwordVisible ? 'assets/icons/ic_eye.svg' : 'assets/icons/ic_eye_off.svg',
-            colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn),
+            colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn),
             width: 24.w, height: 24.w,
           ),
           onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
@@ -78,7 +78,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12.r),
-          borderSide: const BorderSide(color: AppColors.gold, width: 2),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
         ),
       ),
     );
@@ -93,7 +93,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Image.network(
             'https://storage.googleapis.com/uxpilot-auth.appspot.com/f83471f3ec-dc37248d325e8dbe5c12.png',
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: AppColors.navy), // fallback
+            errorBuilder: (context, error, stackTrace) => Container(color: Theme.of(context).colorScheme.primary), // fallback
           ),
           Container(color: Colors.black.withOpacity(0.6)), // Overlay
           SafeArea(
@@ -135,8 +135,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           child: Checkbox(
                                             value: _rememberMe,
                                             onChanged: (val) => setState(() => _rememberMe = val ?? false),
-                                            activeColor: AppColors.gold,
-                                            checkColor: AppColors.navy,
+                                            activeColor: Theme.of(context).colorScheme.secondary,
+                                            checkColor: Theme.of(context).colorScheme.primary,
                                           ),
                                         ),
                                       ),
@@ -161,7 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   ),
                                   child: Text(
                                     'Forgot Password?', 
-                                    style: TextStyle(color: AppColors.gold, fontSize: 13.sp, fontWeight: FontWeight.w600),
+                                    style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 13.sp, fontWeight: FontWeight.w600),
                                   ),
                                 )
                               ],
@@ -169,13 +169,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             SizedBox(height: 32.h),
 
                             _isLoading 
-                              ? const Center(child: CircularProgressIndicator(color: AppColors.gold))
+                              ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary))
                               : ElevatedButton(
                                   onPressed: _login,
                                   style: ElevatedButton.styleFrom(
                                     padding: EdgeInsets.symmetric(vertical: 16.h),
-                                    backgroundColor: AppColors.gold,
-                                    foregroundColor: AppColors.navy,
+                                    backgroundColor: Theme.of(context).colorScheme.secondary,
+                                    foregroundColor: Theme.of(context).colorScheme.primary,
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                                   ),
                                   child: Text('Login', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
@@ -188,7 +188,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 Text("Don't have an account? ", style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
                                 GestureDetector(
                                   onTap: () => context.push('/register'),
-                                  child: Text('Sign Up', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 14.sp)),
+                                  child: Text('Sign Up', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 14.sp)),
                                 )
                               ],
                             ),

@@ -101,7 +101,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           style: GoogleFonts.outfit(
                             fontSize: 24.sp,
                             fontWeight: FontWeight.bold,
-                            color: AppColors.navy,
+                            color: Theme.of(context).colorScheme.primary,
                             height: 1.2,
                           ),
                           textAlign: TextAlign.center,
@@ -111,7 +111,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           page.description,
                           style: GoogleFonts.outfit(
                             fontSize: 14.sp,
-                            color: Colors.grey[600],
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
                             height: 1.5,
                           ),
                           textAlign: TextAlign.center,
@@ -135,7 +135,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     height: 6.h,
                     width: _currentPage == index ? 24.w : 8.w,
                     decoration: BoxDecoration(
-                      color: _currentPage == index ? AppColors.gold : AppColors.gold.withValues(alpha: 0.3),
+                      color: _currentPage == index ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(3.r),
                     ),
                   ),
@@ -160,8 +160,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                       }
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: AppColors.navy,
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       minimumSize: Size(double.infinity, 48.h),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12.r),
@@ -191,7 +191,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         child: Text(
                           'Skip',
                           style: TextStyle(
-                            color: Colors.grey,
+                            color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
                             fontSize: 13.sp,
                             fontWeight: FontWeight.w500,
                           ),

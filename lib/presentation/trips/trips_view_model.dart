@@ -79,12 +79,21 @@ class TripsViewModel extends _$TripsViewModel {
   }
 
   Future<void> selectTab(int index) async {
-    state = const AsyncValue.loading();
+    // Keep previous data while loading to avoid full screen flicker/disappearance
+    if (state.hasValue) {
+      state = const AsyncValue<TripsState>.loading().copyWithPrevious(state);
+    } else {
+      state = const AsyncValue<TripsState>.loading();
+    }
     state = await AsyncValue.guard(() => _fetchTrips(index));
   }
 
   Future<void> refresh() async {
-    state = const AsyncValue.loading();
+    if (state.hasValue) {
+      state = const AsyncValue<TripsState>.loading().copyWithPrevious(state);
+    } else {
+      state = const AsyncValue<TripsState>.loading();
+    }
     state = await AsyncValue.guard(() => _fetchTrips(state.value?.selectedTab ?? 0));
   }
 }

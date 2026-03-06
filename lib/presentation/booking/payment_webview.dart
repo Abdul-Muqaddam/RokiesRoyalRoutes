@@ -93,10 +93,10 @@ class _PaymentWebViewState extends State<PaymentWebView> {
         elevation: 0,
         title: Text(
           widget.paymentType == 'paypal' ? 'PayPal Payment' : 'Complete Payment',
-          style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 16.sp),
+          style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontWeight: FontWeight.bold, fontSize: 16.sp),
         ),
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: AppColors.navy, size: 20.sp),
+          icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary, size: 20.sp),
           onPressed: () => Navigator.pop(context),
         ),
       ),
@@ -104,8 +104,8 @@ class _PaymentWebViewState extends State<PaymentWebView> {
         children: [
           WebViewWidget(controller: _controller),
           if (_isLoading)
-            const Center(
-              child: CircularProgressIndicator(color: AppColors.gold),
+            Center(
+              child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
             ),
         ],
       ),

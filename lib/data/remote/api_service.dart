@@ -14,6 +14,11 @@ class ApiService {
     return AuthResponse.fromJson(response.data);
   }
 
+  Future<AuthResponse> adminLogin(LoginRequest request) async {
+    final response = await _dio.post('admin/login', data: request.toJson());
+    return AuthResponse.fromJson(response.data);
+  }
+
   Future<AuthResponse> register(RegisterRequest request) async {
     final response = await _dio.post('auth/register', data: request.toJson());
     return AuthResponse.fromJson(response.data);

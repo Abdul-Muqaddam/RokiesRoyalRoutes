@@ -17,64 +17,65 @@ class AppColors {
 }
 
 class AppTheme {
-  static ThemeData get lightTheme {
+  static ThemeData lightTheme([Color? customPrimary, Color? customNavy, Color? customTextColor, Color? customHighlightTextColor]) {
+    final primaryAccent = customPrimary ?? AppColors.gold;
+    final primaryNav = customNavy ?? AppColors.navy;
+    final textColor = customTextColor ?? AppColors.charcoalGray;
+    final highlightTextColor = customHighlightTextColor ?? primaryAccent;
+    
     final baseTheme = ThemeData(
       useMaterial3: true,
-      colorScheme: const ColorScheme(
+      colorScheme: ColorScheme(
         brightness: Brightness.light,
-        primary: AppColors.navy,
+        primary: primaryNav,
         onPrimary: AppColors.white,
-        secondary: AppColors.gold,
-        onSecondary: AppColors.navy,
+        secondary: primaryAccent,
+        onSecondary: highlightTextColor,
         error: Colors.redAccent,
         onError: AppColors.white,
         surface: AppColors.white,
-        onSurface: AppColors.navy,
+        onSurface: textColor,
+        onSurfaceVariant: textColor.withValues(alpha: 0.7),
         outline: AppColors.dividerGray,
         outlineVariant: AppColors.lightGray,
-        tertiary: AppColors.gold,
+        tertiary: primaryAccent,
       ),
       scaffoldBackgroundColor: AppColors.white,
     );
 
     return baseTheme.copyWith(
-      primaryColor: AppColors.navy,
-      highlightColor: AppColors.gold.withOpacity(0.1),
-      splashColor: AppColors.gold.withOpacity(0.1),
-      hoverColor: AppColors.gold.withOpacity(0.05),
+      primaryColor: primaryNav,
+      focusColor: Colors.transparent,
+      highlightColor: primaryAccent.withOpacity(0.1),
+      splashColor: primaryAccent.withOpacity(0.1),
+      hoverColor: primaryAccent.withOpacity(0.05),
+      shadowColor: Colors.black.withOpacity(0.1),
+      canvasColor: AppColors.white,
       visualDensity: VisualDensity.adaptivePlatformDensity,
       textSelectionTheme: TextSelectionThemeData(
-        cursorColor: AppColors.gold,
-        selectionColor: AppColors.gold.withOpacity(0.3),
-        selectionHandleColor: AppColors.gold,
+        cursorColor: primaryAccent,
+        selectionColor: primaryAccent.withOpacity(0.3),
+        selectionHandleColor: primaryAccent,
       ),
       textTheme: GoogleFonts.outfitTextTheme(baseTheme.textTheme).copyWith(
-        headlineLarge: GoogleFonts.outfit(
-          textStyle: baseTheme.textTheme.headlineLarge,
-          fontWeight: FontWeight.bold,
-          color: AppColors.navy,
-        ),
-        headlineMedium: GoogleFonts.outfit(
-          textStyle: baseTheme.textTheme.headlineMedium,
-          fontWeight: FontWeight.bold,
-          color: AppColors.navy,
-        ),
-        titleLarge: GoogleFonts.outfit(
-          textStyle: baseTheme.textTheme.titleLarge,
-          fontWeight: FontWeight.bold,
-          color: AppColors.navy,
-        ),
-        bodyLarge: GoogleFonts.outfit(
-          textStyle: baseTheme.textTheme.bodyLarge,
-          color: AppColors.charcoalGray,
-        ),
-        bodyMedium: GoogleFonts.outfit(
-          textStyle: baseTheme.textTheme.bodyMedium,
-          color: AppColors.charcoalGray,
-        ),
+        displayLarge: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        displayMedium: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        displaySmall: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        headlineLarge: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        headlineMedium: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        headlineSmall: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        titleLarge: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        titleMedium: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        titleSmall: GoogleFonts.outfit(color: textColor, fontWeight: FontWeight.bold),
+        bodyLarge: GoogleFonts.outfit(color: textColor),
+        bodyMedium: GoogleFonts.outfit(color: textColor),
+        bodySmall: GoogleFonts.outfit(color: textColor),
+        labelLarge: GoogleFonts.outfit(color: textColor.withValues(alpha: 0.8)),
+        labelMedium: GoogleFonts.outfit(color: textColor.withValues(alpha: 0.8)),
+        labelSmall: GoogleFonts.outfit(color: textColor.withValues(alpha: 0.8)),
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: AppColors.navy,
+      appBarTheme: AppBarTheme(
+        backgroundColor: primaryNav,
         foregroundColor: AppColors.white,
         centerTitle: true,
         surfaceTintColor: Colors.transparent,
@@ -86,7 +87,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         surfaceTintColor: Colors.transparent,
-        indicatorColor: AppColors.gold.withOpacity(0.2),
+        indicatorColor: primaryAccent.withOpacity(0.2),
       ),
       bottomSheetTheme: const BottomSheetThemeData(
         surfaceTintColor: Colors.transparent,
@@ -94,8 +95,8 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.gold,
-          foregroundColor: AppColors.navy,
+          backgroundColor: primaryAccent,
+          foregroundColor: highlightTextColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -114,7 +115,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: AppColors.gold, width: 2),
+          borderSide: BorderSide(color: primaryAccent, width: 2),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -125,7 +126,7 @@ class AppTheme {
           borderSide: const BorderSide(color: Colors.redAccent, width: 2),
         ),
         labelStyle: const TextStyle(color: AppColors.mediumGray),
-        floatingLabelStyle: const TextStyle(color: AppColors.gold),
+        floatingLabelStyle: TextStyle(color: primaryAccent),
       ),
     );
   }

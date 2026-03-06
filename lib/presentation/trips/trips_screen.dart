@@ -28,7 +28,7 @@ class TripsScreen extends ConsumerWidget {
                   Text(
                     'My Trips',
                     style: TextStyle(
-                      color: AppColors.navy,
+                      color: Theme.of(context).textTheme.titleLarge?.color,
                       fontSize: 22.sp,
                       fontWeight: FontWeight.bold,
                     ),
@@ -73,10 +73,10 @@ class TripsScreen extends ConsumerWidget {
               child: tripsStateAsync.when(
                 data: (state) {
                   if (state.trips.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
                         'No trips found',
-                        style: TextStyle(color: Colors.grey, fontSize: 14),
+                        style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontSize: 14),
                       ),
                     );
                   }
@@ -89,8 +89,8 @@ class TripsScreen extends ConsumerWidget {
                     },
                   );
                 },
-                loading: () => const Center(
-                  child: CircularProgressIndicator(color: AppColors.gold),
+                loading: () => Center(
+                  child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
                 ),
                 error: (error, stack) => Center(
                   child: Column(
@@ -101,7 +101,7 @@ class TripsScreen extends ConsumerWidget {
                       const Text('Failed to load trips'),
                       TextButton(
                         onPressed: () => ref.read(tripsViewModelProvider.notifier).refresh(),
-                        child: const Text('Retry', style: TextStyle(color: AppColors.gold)),
+                        child: Text('Retry', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
                       ),
                     ],
                   ),
@@ -113,8 +113,8 @@ class TripsScreen extends ConsumerWidget {
               child: ElevatedButton(
                 onPressed: () => context.push('/booking'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.navy,
-                  foregroundColor: AppColors.gold,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.secondary,
                   minimumSize: Size(double.infinity, 56.h),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                 ),
@@ -149,8 +149,8 @@ class _TripTabButton extends StatelessWidget {
       child: ElevatedButton(
         onPressed: onClick,
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected ? AppColors.gold : AppColors.lightGray,
-          foregroundColor: isSelected ? AppColors.navy : Colors.grey,
+          backgroundColor: isSelected ? Theme.of(context).colorScheme.secondary : AppColors.lightGray,
+          foregroundColor: isSelected ? Theme.of(context).textTheme.bodyLarge?.color : Colors.grey,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           padding: EdgeInsets.symmetric(horizontal: 4.w),
@@ -199,7 +199,7 @@ class _TripCard extends StatelessWidget {
                 _StatusBadge(status: trip.status),
                 Text(
                   trip.reference ?? '',
-                  style: TextStyle(color: Colors.grey, fontSize: 10.sp),
+                  style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 10.sp),
                 ),
               ],
             ),
@@ -207,7 +207,7 @@ class _TripCard extends StatelessWidget {
             Text(
               trip.title,
               style: TextStyle(
-                color: AppColors.navy,
+                color: Theme.of(context).textTheme.titleMedium?.color,
                 fontSize: 16.sp,
                 fontWeight: FontWeight.bold,
               ),
@@ -215,14 +215,14 @@ class _TripCard extends StatelessWidget {
             SizedBox(height: 4.h),
             Text(
               trip.dateTime,
-              style: TextStyle(color: Colors.grey, fontSize: 12.sp),
+              style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp),
             ),
             SizedBox(height: 16.h),
             Container(
               width: double.infinity,
               padding: EdgeInsets.all(12.w),
               decoration: BoxDecoration(
-                color: AppColors.goldLight,
+                color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(16.r),
               ),
               child: Column(
@@ -232,8 +232,8 @@ class _TripCard extends StatelessWidget {
                       Container(
                         width: 8.w,
                         height: 8.w,
-                        decoration: const BoxDecoration(
-                          color: AppColors.gold,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.secondary,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -242,7 +242,7 @@ class _TripCard extends StatelessWidget {
                         child: Text(
                           trip.pickupLocation ?? 'Unknown Location',
                           style: TextStyle(
-                            color: AppColors.navy,
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w500,
                           ),
@@ -258,14 +258,14 @@ class _TripCard extends StatelessWidget {
                       SvgPicture.asset(
                         'assets/icons/ic_location.svg',
                         width: 10.w,
-                        colorFilter: const ColorFilter.mode(AppColors.navy, BlendMode.srcIn),
+                        colorFilter: ColorFilter.mode(Theme.of(context).textTheme.bodyMedium!.color!, BlendMode.srcIn),
                       ),
                       SizedBox(width: 10.w),
                       Expanded(
                         child: Text(
                           trip.dropoffLocation ?? 'Unknown Destination',
                           style: TextStyle(
-                            color: AppColors.navy,
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w500,
                           ),
@@ -285,7 +285,7 @@ class _TripCard extends StatelessWidget {
                 Text(
                   trip.vehicleType,
                   style: TextStyle(
-                    color: AppColors.navy,
+                    color: Theme.of(context).textTheme.bodySmall?.color,
                     fontSize: 12.sp,
                     fontWeight: FontWeight.bold,
                   ),
@@ -293,7 +293,7 @@ class _TripCard extends StatelessWidget {
                 Text(
                   trip.price ?? '',
                   style: TextStyle(
-                    color: AppColors.navy,
+                    color: Theme.of(context).textTheme.titleLarge?.color,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.bold,
                   ),
@@ -309,8 +309,8 @@ class _TripCard extends StatelessWidget {
                       // Navigate to details
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.gold,
-                      foregroundColor: AppColors.navy,
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                     ),
@@ -332,7 +332,7 @@ class _TripCard extends StatelessWidget {
                       ),
                       child: Text(
                         'Rebook',
-                        style: TextStyle(color: Colors.grey, fontSize: 12.sp, fontWeight: FontWeight.bold),
+                        style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp, fontWeight: FontWeight.bold),
                       ),
                     ),
                   ),

@@ -30,11 +30,11 @@ class BookingSuccessScreen extends ConsumerWidget {
             children: [
               Container(
                 padding: EdgeInsets.all(8.w),
-                decoration: BoxDecoration(color: AppColors.navy, borderRadius: BorderRadius.circular(8.r)),
-                child: SvgPicture.asset('assets/icons/ic_car.svg', colorFilter: const ColorFilter.mode(AppColors.gold, BlendMode.srcIn), width: 18.w),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, borderRadius: BorderRadius.circular(8.r)),
+                child: SvgPicture.asset('assets/icons/ic_car.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 18.w),
               ),
               SizedBox(width: 12.w),
-              Text('Rockies Royal Routes', style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 16.sp)),
+              Text('Rockies Royal Routes', style: TextStyle(color: Theme.of(context).textTheme.titleSmall?.color, fontWeight: FontWeight.bold, fontSize: 16.sp)),
             ],
           ),
         ),
@@ -52,8 +52,8 @@ class BookingSuccessScreen extends ConsumerWidget {
                 child: ElevatedButton(
                   onPressed: () => context.go('/home'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.gold,
-                    foregroundColor: AppColors.navy,
+                    backgroundColor: Theme.of(context).colorScheme.secondary,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
                     minimumSize: Size(double.infinity, 56.h),
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
                     elevation: 0,
@@ -64,12 +64,12 @@ class BookingSuccessScreen extends ConsumerWidget {
               SizedBox(height: 12.h),
               TextButton(
                 onPressed: () => context.push('/invoice'),
-                child: Text('View Invoice', style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold, fontSize: 16.sp)),
+                child: Text('View Invoice', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 16.sp)),
               ),
               SizedBox(height: 12.h),
               TextButton(
                 onPressed: () => context.go('/trips'),
-                child: Text('View My Trips', style: TextStyle(color: Colors.grey, fontSize: 14.sp)),
+                child: Text('View My Trips', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7), fontSize: 14.sp)),
               ),
               SizedBox(height: 24.h),
             ],
@@ -101,7 +101,7 @@ class _SuccessHeader extends StatelessWidget {
               child: Container(
                 width: 60.w,
                 height: 60.w,
-                decoration: const BoxDecoration(color: AppColors.gold, shape: BoxShape.circle),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary, shape: BoxShape.circle),
                 child: Icon(Icons.check, color: AppColors.white, size: 32.w),
               ),
             ),
@@ -110,19 +110,19 @@ class _SuccessHeader extends StatelessWidget {
           Text(
             firstName.isNotEmpty ? 'Congratulations, $firstName!' : 'Ride Booked Successfully!',
             textAlign: TextAlign.center,
-            style: TextStyle(color: AppColors.navy, fontSize: 20.sp, fontWeight: FontWeight.bold),
+            style: TextStyle(color: Theme.of(context).textTheme.headlineSmall?.color, fontSize: 20.sp, fontWeight: FontWeight.bold),
           ),
           SizedBox(height: 8.h),
           Text(
             'Your booking is confirmed.\nYour chauffeur will be ready for your trip.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey, fontSize: 14.sp, height: 1.5),
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.8), fontSize: 14.sp, height: 1.5),
           ),
           if (bookingId != null) ...[
             SizedBox(height: 16.h),
             Text(
               'Ref: #$bookingId',
-              style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 14.sp),
+              style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 14.sp),
             ),
           ],
         ],
@@ -151,19 +151,19 @@ class _RideDetailsCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('RIDE DETAILS', style: TextStyle(color: Colors.grey, fontSize: 11.sp, fontWeight: FontWeight.bold, letterSpacing: 1)),
+              Text('RIDE DETAILS', style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 11.sp, fontWeight: FontWeight.bold, letterSpacing: 1)),
               SizedBox(width: 8.w),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerRight,
                   child: Container(
                     padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
-                    decoration: BoxDecoration(color: AppColors.gold.withOpacity(0.1), borderRadius: BorderRadius.circular(8.r)),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(8.r)),
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Text(
                         state.selectedVehicle?.name ?? 'Vehicle', 
-                        style: TextStyle(color: AppColors.gold, fontSize: 11.sp, fontWeight: FontWeight.bold)
+                        style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 11.sp, fontWeight: FontWeight.bold)
                       ),
                     ),
                   ),
@@ -205,9 +205,9 @@ class _RouteIndicator extends StatelessWidget {
         Column(
           children: [
             SizedBox(height: 10.h), // Top padding to center first dot with Pickup text
-            Container(width: 14.w, height: 14.w, decoration: BoxDecoration(border: Border.all(color: AppColors.gold, width: 3), shape: BoxShape.circle, color: AppColors.white)),
+            Container(width: 14.w, height: 14.w, decoration: BoxDecoration(border: Border.all(color: Theme.of(context).colorScheme.secondary, width: 3), shape: BoxShape.circle, color: AppColors.white)),
             Container(width: 2.w, height: 42.h, color: Colors.grey[200]),
-            Container(width: 14.w, height: 14.w, decoration: const BoxDecoration(color: AppColors.navy, shape: BoxShape.circle)),
+            Container(width: 14.w, height: 14.w, decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary, shape: BoxShape.circle)),
           ],
         ),
         SizedBox(width: 16.w),
@@ -215,11 +215,11 @@ class _RouteIndicator extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Pickup', style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
-              Text(pickup, style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 13.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('Pickup', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 10.sp)),
+              Text(pickup, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 13.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
               SizedBox(height: 20.h),
-              Text('Drop-off', style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
-              Text(destination, style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 13.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
+              Text('Drop-off', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 10.sp)),
+              Text(destination, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 13.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
@@ -237,9 +237,9 @@ class _StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(label, style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
+        Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 10.sp)),
         SizedBox(height: 4.h),
-        Text(value, style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 13.sp)),
+        Text(value, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 13.sp)),
       ],
     );
   }
@@ -267,7 +267,7 @@ class _CustomerInfoCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('CUSTOMER INFORMATION', style: TextStyle(color: Colors.grey, fontSize: 11.sp, fontWeight: FontWeight.bold, letterSpacing: 1)),
+          Text('CUSTOMER INFORMATION', style: TextStyle(color: Theme.of(context).textTheme.labelSmall?.color, fontSize: 11.sp, fontWeight: FontWeight.bold, letterSpacing: 1)),
           SizedBox(height: 24.h),
           _InfoRow(icon: Icons.person, label: 'Name', value: '${state.firstName} ${state.lastName}'),
           SizedBox(height: 16.h),
@@ -290,13 +290,13 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: AppColors.gold, size: 20),
+        Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 20),
         SizedBox(width: 16.w),
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(label, style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
-            Text(value, style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 13.sp)),
+            Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 10.sp)),
+            Text(value, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 13.sp)),
           ],
         ),
       ],

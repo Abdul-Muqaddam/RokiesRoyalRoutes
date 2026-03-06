@@ -36,8 +36,9 @@ class UserDto {
       email: (json['email'] ?? '').toString(),
       phone: (json['phone'] ?? '').toString(),
       avatarUrl: (json['avatar'] ?? json['avatar_url'] ?? json['profile_pic'] ?? '').toString(),
-      totalTrips: json['total_trips'] is int ? json['total_trips'] as int : int.tryParse(json['total_trips']?.toString() ?? '0') ?? 0,
-      totalSpent: (json['total_spent'] ?? '\$0.00').toString(),
+      totalTrips: json['totalBookings'] is int ? json['totalBookings'] as int : int.tryParse(json['totalBookings']?.toString() ?? '0') ?? 0,
+      totalSpent: "\$${json['totalSpent'] ?? '0.00'}",
+
       firstName: (json['first_name'] ?? json['firstName'] ?? '').toString(),
       lastName: (json['last_name'] ?? json['lastName'] ?? '').toString(),
       nickname: (json['nickname'] ?? '').toString(),

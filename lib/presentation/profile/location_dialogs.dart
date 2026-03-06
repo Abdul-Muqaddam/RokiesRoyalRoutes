@@ -19,7 +19,7 @@ class SavedPlacesDialog extends ConsumerWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
       title: Text(
         'Saved Places',
-        style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 18.sp),
+        style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontWeight: FontWeight.bold, fontSize: 18.sp),
       ),
       content: SizedBox(
         width: 320.w,
@@ -36,7 +36,7 @@ class SavedPlacesDialog extends ConsumerWidget {
                         padding: EdgeInsets.symmetric(vertical: 24.h),
                         child: Text(
                           'No saved places yet.',
-                          style: TextStyle(color: Colors.grey, fontSize: 12.sp),
+                          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp),
                         ),
                       );
                     }
@@ -60,17 +60,17 @@ class SavedPlacesDialog extends ConsumerWidget {
                   },
                   loading: () => Padding(
                     padding: EdgeInsets.all(24.h),
-                    child: const CircularProgressIndicator(color: AppColors.gold),
+                    child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
                   ),
                   error: (err, _) => Text('Error: $err'),
                 ),
                 SizedBox(height: 16.h),
                 TextButton.icon(
                   onPressed: () => _showAddPlaceDialog(context, ref),
-                  icon: Icon(Icons.add, size: 20.w, color: AppColors.gold),
+                  icon: Icon(Icons.add, size: 20.w, color: Theme.of(context).colorScheme.secondary),
                   label: Text(
                     'Add New Place',
-                    style: TextStyle(color: AppColors.gold, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold),
                   ),
                   style: TextButton.styleFrom(minimumSize: Size(double.infinity, 48.h)),
                 ),
@@ -79,7 +79,7 @@ class SavedPlacesDialog extends ConsumerWidget {
             if (isActionLoading)
               Container(
                 color: Colors.white.withOpacity(0.5),
-                child: const CircularProgressIndicator(color: AppColors.gold),
+                child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
               ),
           ],
         ),
@@ -87,7 +87,7 @@ class SavedPlacesDialog extends ConsumerWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Close', style: TextStyle(color: AppColors.navy)),
+          child: Text('Close', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
         ),
       ],
     );
@@ -129,7 +129,7 @@ class _PlaceItemRow extends StatelessWidget {
       padding: EdgeInsets.symmetric(vertical: 4.h),
       child: Row(
         children: [
-          Icon(icon, color: AppColors.gold, size: 20.w),
+          Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 20.w),
           SizedBox(width: 12.w),
           Expanded(
             child: Column(
@@ -137,11 +137,11 @@ class _PlaceItemRow extends StatelessWidget {
               children: [
                 Text(
                   place.name,
-                  style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.w600),
+                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w600),
                 ),
                 Text(
                   place.address,
-                  style: TextStyle(color: Colors.grey, fontSize: 11.sp),
+                  style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 11.sp),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -150,7 +150,7 @@ class _PlaceItemRow extends StatelessWidget {
           ),
           IconButton(
             onPressed: onEdit,
-            icon: Icon(Icons.edit_outlined, color: Colors.grey, size: 16.w),
+            icon: Icon(Icons.edit_outlined, color: Theme.of(context).textTheme.bodySmall?.color, size: 16.w),
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
           ),
@@ -208,7 +208,7 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24.r)),
       title: Text(
         widget.initialPlace == null ? 'Add New Place' : 'Edit Place',
-        style: TextStyle(color: AppColors.navy, fontWeight: FontWeight.bold, fontSize: 18.sp),
+        style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontWeight: FontWeight.bold, fontSize: 18.sp),
       ),
       content: SizedBox(
         width: 320.w,
@@ -225,7 +225,7 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.r),
-                    borderSide: const BorderSide(color: AppColors.gold, width: 2),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
                   ),
                   ),
                 ),
@@ -235,7 +235,7 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
                   padding: EdgeInsets.only(bottom: 8.h),
                   child: Text(
                     'Editing ${widget.initialPlace!.name}',
-                    style: TextStyle(color: AppColors.navy, fontSize: 14.sp, fontWeight: FontWeight.w500),
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w500),
                   ),
                 ),
               
@@ -247,7 +247,7 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.r),
-                    borderSide: const BorderSide(color: AppColors.gold),
+                    borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary),
                   ),
                 ),
               ),
@@ -275,11 +275,11 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
               TextButton.icon(
                 onPressed: _isFetchingCurrentLocation ? null : _useCurrentLocation,
                 icon: _isFetchingCurrentLocation 
-                    ? SizedBox(width: 14.w, height: 14.h, child: const CircularProgressIndicator(strokeWidth: 2, color: AppColors.gold))
-                    : Icon(Icons.my_location, size: 14.w, color: AppColors.gold),
+                    ? SizedBox(width: 14.w, height: 14.h, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.secondary))
+                    : Icon(Icons.my_location, size: 14.w, color: Theme.of(context).colorScheme.secondary),
                 label: Text(
                   'Use current location',
-                  style: TextStyle(color: AppColors.gold, fontSize: 11.sp, fontWeight: FontWeight.w500),
+                  style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 11.sp, fontWeight: FontWeight.w500),
                 ),
                 style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
               ),
@@ -290,17 +290,17 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          child: Text('Cancel', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6))),
         ),
         ElevatedButton(
           onPressed: isActionLoading ? null : _save,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.gold,
-            foregroundColor: AppColors.navy,
+            backgroundColor: Theme.of(context).colorScheme.secondary,
+            foregroundColor: Theme.of(context).colorScheme.primary,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           ),
           child: isActionLoading
-              ? SizedBox(height: 20.h, width: 20.h, child: const CircularProgressIndicator(color: AppColors.navy, strokeWidth: 2))
+              ? SizedBox(height: 20.h, width: 20.h, child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary, strokeWidth: 2))
               : const Text('Save', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],

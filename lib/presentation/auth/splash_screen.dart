@@ -80,7 +80,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                     width: 72.w,
                     height: 72.w,
                     decoration: BoxDecoration(
-                      color: AppColors.gold,
+                      color: Theme.of(context).colorScheme.secondary,
                       borderRadius: BorderRadius.circular(12.r),
                       boxShadow: [
                         BoxShadow(
@@ -96,7 +96,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       height: 36.w,
                       child: SvgPicture.asset(
                         'assets/icons/ic_crown.svg',
-                        colorFilter: const ColorFilter.mode(AppColors.navy, BlendMode.srcIn),
+                        colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.primary, BlendMode.srcIn),
                       ),
                     ),
                   ),
@@ -107,7 +107,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   style: TextStyle(
                     fontSize: 24.sp,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.navy,
+                    color: Theme.of(context).textTheme.displaySmall?.color,
                     letterSpacing: 2.w,
                   ),
                 ),
@@ -116,7 +116,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                   style: TextStyle(
                     fontSize: 12.sp,
                     fontWeight: FontWeight.w500,
-                    color: AppColors.gold,
+                    color: Theme.of(context).colorScheme.secondary,
                     letterSpacing: 4.w,
                   ),
                 ),
@@ -127,7 +127,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
             alignment: Alignment.bottomCenter,
             child: Padding(
               padding: EdgeInsets.only(bottom: 60.h),
-              child: PulsingDots(color: AppColors.gold),
+              child: PulsingDots(color: Theme.of(context).colorScheme.secondary),
             ),
           ),
         ],
