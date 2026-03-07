@@ -21,7 +21,7 @@ final dioProvider = Provider<Dio>((ref) {
   dio.interceptors.add(InterceptorsWrapper(
     onRequest: (options, handler) {
       final token = prefsManager.getToken();
-      if (token != null && token.isNotEmpty) {
+      if (token != null && token.isNotEmpty && !options.headers.containsKey('Authorization')) {
         options.headers['Authorization'] = 'Bearer $token';
       }
       return handler.next(options);

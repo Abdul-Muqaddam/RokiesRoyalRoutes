@@ -1,6 +1,7 @@
 import '../models/vehicle_models.dart';
 import '../remote/api_service.dart';
 import '../../core/network/dio_client.dart';
+import '../local/preferences_manager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
@@ -35,6 +36,6 @@ class VehicleRepositoryImpl implements VehicleRepository {
 
 @riverpod
 VehicleRepository vehicleRepository(Ref ref) {
-  final apiService = ApiService(ref.watch(dioProvider));
+  final apiService = ref.watch(apiServiceProvider);
   return VehicleRepositoryImpl(apiService);
 }

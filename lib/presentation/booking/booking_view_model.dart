@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../data/remote/api_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/models/vehicle_models.dart';

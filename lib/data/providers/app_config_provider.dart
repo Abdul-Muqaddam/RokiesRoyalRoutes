@@ -29,8 +29,8 @@ class AppConfigNotifier extends StateNotifier<AppConfig> {
   Future<void> updateConfig(AppConfig config) async {
     try {
       await _ref.read(apiServiceProvider).updateAppConfig(config);
-      state = config;
-      await _syncToLocalProviders(config);
+      // Re-fetch to ensure we have the absolute latest from the server
+      await fetchConfig();
     } catch (e) {
       debugPrint('Error updating app config: $e');
       rethrow;

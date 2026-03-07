@@ -5,10 +5,6 @@ import '../models/auth_models.dart';
 import '../remote/api_service.dart';
 import '../../domain/repositories/auth_repository.dart';
 
-final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService(ref.watch(dioProvider));
-});
-
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl(
     ref.watch(apiServiceProvider),
@@ -38,9 +34,8 @@ class AuthRepositoryImpl implements AuthRepository {
     final request = LoginRequest(username: username, password: password);
     final response = await _apiService.adminLogin(request);
     
-    // Only save the token if it's necessary for the admin UI session
     if (response.success && response.token.isNotEmpty) {
-      await _preferencesManager.saveToken(response.token);
+      await _preferencesManager.saveAdminToken(response.token);
     }
     return response;
   }
@@ -62,7 +57,7 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> logout() async {
-    await _preferencesManager.clearToken();
+    await _preferencesManager.removeToken();
   }
 
   @override

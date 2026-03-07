@@ -1,4 +1,7 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/network/dio_client.dart';
+import '../local/preferences_manager.dart';
 import '../models/auth_models.dart';
 import '../models/user_models.dart';
 import '../models/vehicle_models.dart';
@@ -7,8 +10,9 @@ import '../models/app_config.dart';
 
 class ApiService {
   final Dio _dio;
+  final PreferencesManager _prefsManager;
 
-  ApiService(this._dio);
+  ApiService(this._dio, this._prefsManager);
 
   Future<AuthResponse> login(LoginRequest request) async {
     final response = await _dio.post('auth/login', data: request.toJson());
@@ -172,6 +176,19 @@ class ApiService {
   }
 
   Future<void> updateAppConfig(AppConfig config) async {
-    await _dio.post('app-config', data: config.toJson());
+    final adminToken = _prefsManager.getAdminToken();
+    final options = adminToken != null && adminToken.isNotEmpty
+        ? Options(headers: {'Authorization': 'Bearer $adminToken'})
+        : null;
+
+    await _dio.post(
+      'app-config',
+      data: config.toJson(),
+      options: options,
+    );
   }
 }
+
+final apiServiceProvider = Provider<ApiService>((ref) {
+  return ApiService(ref.watch(dioProvider), ref.watch(preferencesManagerProvider));
+});

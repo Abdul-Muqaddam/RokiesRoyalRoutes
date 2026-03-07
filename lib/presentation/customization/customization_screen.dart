@@ -23,19 +23,20 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
   String? _primaryErrorMessage;
   String? _textErrorMessage;
   String? _highlightTextErrorMessage;
+  bool _isUpdating = false;
 
   @override
   void initState() {
     super.initState();
-    final accentColor = ref.read(appColorProvider);
-    final primaryColor = ref.read(appPrimaryColorProvider);
-    final textColor = ref.read(appTextColorProvider);
-    final highlightTextColor = ref.read(appHighlightTextColorProvider);
+    _updateControllers();
+  }
 
-    _accentHexController.text = _colorToHex(accentColor);
-    _primaryHexController.text = _colorToHex(primaryColor);
-    _textHexController.text = _colorToHex(textColor);
-    _highlightTextHexController.text = _colorToHex(highlightTextColor);
+  void _updateControllers() {
+    final config = ref.read(appConfigProvider);
+    _accentHexController.text = config.accentColor;
+    _primaryHexController.text = config.primaryColor;
+    _textHexController.text = config.textColor;
+    _highlightTextHexController.text = config.highlightTextColor;
   }
 
   String _colorToHex(Color color) {
@@ -59,85 +60,59 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     return null;
   }
 
-  void _applyAccentColor() {
-    final text = _accentHexController.text;
-    final error = _validateHex(text);
-    setState(() => _accentErrorMessage = error);
-    if (error != null) return;
-
-    ref.read(appColorProvider.notifier).updateColor(text);
+  Future<void> _applyColor(String text, String? Function(String) validator, Future<void> Function(String) setter, String colorName) async {
+    if (_isUpdating) return;
     
-    // Push global config to backend
-    ref.read(appConfigProvider.notifier).updateConfig(
-      ref.read(appConfigProvider.notifier).createConfigFromLocal()
-    );
+    final error = validator(text);
+    if (error != null) {
+      setState(() {
+        if (colorName == 'Accent') _accentErrorMessage = error;
+        if (colorName == 'Primary') _primaryErrorMessage = error;
+        if (colorName == 'Text') _textErrorMessage = error;
+        if (colorName == 'Highlight') _highlightTextErrorMessage = error;
+      });
+      return;
+    }
 
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Accent color updated to #$text!')),
-      );
+    // Clear previous errors if fixed
+    setState(() {
+      if (colorName == 'Accent') _accentErrorMessage = null;
+      if (colorName == 'Primary') _primaryErrorMessage = null;
+      if (colorName == 'Text') _textErrorMessage = null;
+      if (colorName == 'Highlight') _highlightTextErrorMessage = null;
+    });
+
+    setState(() => _isUpdating = true);
+    try {
+      // 1. Await the specific provider update (syncs to local prefs & state)
+      await setter(text);
+      
+      // 2. Create the global config from the NOW-UPDATED local providers
+      final newConfig = ref.read(appConfigProvider.notifier).createConfigFromLocal();
+      
+      // 3. Push to backend & re-fetch to ensure everything is perfect
+      await ref.read(appConfigProvider.notifier).updateConfig(newConfig);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$colorName color updated and synced with cloud!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to sync $colorName color: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUpdating = false);
     }
   }
 
-  void _applyPrimaryColor() {
-    final text = _primaryHexController.text;
-    final error = _validateHex(text);
-    setState(() => _primaryErrorMessage = error);
-    if (error != null) return;
-
-    ref.read(appPrimaryColorProvider.notifier).updateColor(text);
-    
-    // Push global config to backend
-    ref.read(appConfigProvider.notifier).updateConfig(
-      ref.read(appConfigProvider.notifier).createConfigFromLocal()
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Primary color updated to #$text!')),
-      );
-    }
-  }
-
-  void _applyTextColor() {
-    final text = _textHexController.text;
-    final error = _validateHex(text);
-    setState(() => _textErrorMessage = error);
-    if (error != null) return;
-
-    ref.read(appTextColorProvider.notifier).updateColor(text);
-    
-    // Push global config to backend
-    ref.read(appConfigProvider.notifier).updateConfig(
-      ref.read(appConfigProvider.notifier).createConfigFromLocal()
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Text color updated to #$text!')),
-      );
-    }
-  }
-
-  void _applyHighlightTextColor() {
-    final text = _highlightTextHexController.text;
-    final error = _validateHex(text);
-    setState(() => _highlightTextErrorMessage = error);
-    if (error != null) return;
-
-    ref.read(appHighlightTextColorProvider.notifier).updateColor(text);
-    
-    // Push global config to backend
-    ref.read(appConfigProvider.notifier).updateConfig(
-      ref.read(appConfigProvider.notifier).createConfigFromLocal()
-    );
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Highlight text color updated to #$text!')),
-      );
-    }
-  }
+  void _applyAccentColor() => _applyColor(_accentHexController.text, _validateHex, (val) => ref.read(appColorProvider.notifier).updateColor(val), 'Accent');
+  void _applyPrimaryColor() => _applyColor(_primaryHexController.text, _validateHex, (val) => ref.read(appPrimaryColorProvider.notifier).updateColor(val), 'Primary');
+  void _applyTextColor() => _applyColor(_textHexController.text, _validateHex, (val) => ref.read(appTextColorProvider.notifier).updateColor(val), 'Text');
+  void _applyHighlightTextColor() => _applyColor(_highlightTextHexController.text, _validateHex, (val) => ref.read(appHighlightTextColorProvider.notifier).updateColor(val), 'Highlight');
 
   Widget _buildColorSection({
     required String title,
@@ -215,7 +190,7 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
               prefixIcon: Padding(
                 padding: EdgeInsets.all(12.w),
                 child: SvgPicture.asset(
-                  'assets/icons/ic_settings.svg',
+                  'assets/icons/ic_customization.svg',
                   colorFilter:
                       ColorFilter.mode(accentColor, BlendMode.srcIn),
                   width: 24.w,
@@ -267,113 +242,147 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
     final textColor = ref.watch(appTextColorProvider);
     final highlightTextColor = ref.watch(appHighlightTextColorProvider);
 
+    // Listen to global config changes (e.g. from fetchConfig) and update controllers
+    ref.listen(appConfigProvider, (previous, next) {
+      if (previous != next) {
+        _updateControllers();
+      }
+    });
+
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: IconButton(
-                icon: Icon(Icons.arrow_back, color: Theme.of(context).colorScheme.primary),
-                onPressed: () => context.pop(),
-              ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Customize App',
-                        style: TextStyle(
-                            fontSize: 28.sp,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).textTheme.displayLarge?.color ??
-                                Theme.of(context).colorScheme.primary),
-                        textAlign: TextAlign.center,
+      appBar: AppBar(
+        title: Text(
+          'Customize App',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            fontSize: 20.sp,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            onPressed: () async {
+              setState(() => _isUpdating = true);
+              try {
+                await ref.read(appConfigProvider.notifier).fetchConfig();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Configuration refreshed from cloud!')),
+                  );
+                }
+              } finally {
+                if (mounted) setState(() => _isUpdating = false);
+              }
+            },
+            tooltip: 'Refresh from Cloud',
+          ),
+        ],
+      ),
+      body: Stack(
+        children: [
+          SafeArea(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Theme Customization',
+                      style: TextStyle(
+                        fontSize: 24.sp,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-                      SizedBox(height: 8.h),
-                      Text(
-                        'Enter hex codes to personalize your app theme',
-                        style: TextStyle(
-                            fontSize: 14.sp, color: Theme.of(context).textTheme.bodyMedium?.color),
-                        textAlign: TextAlign.center,
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 8.h),
+                    Text(
+                      'Enter hex codes to personalize your app theme',
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        color: Theme.of(context).textTheme.bodyMedium?.color,
                       ),
-                      SizedBox(height: 32.h),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: 32.h),
 
-                      // Accent Color Section
-                      _buildColorSection(
-                        title: 'Accent Color',
-                        subtitle: 'Buttons, highlights, icons',
-                        controller: _accentHexController,
-                        errorMessage: _accentErrorMessage,
-                        previewColor: accentColor,
-                        accentColor: accentColor,
-                        textColor: textColor,
-                        onApply: _applyAccentColor,
-                      ),
-                      SizedBox(height: 20.h),
+                    // Accent Color Section
+                    _buildColorSection(
+                      title: 'Accent Color',
+                      subtitle: 'Buttons, highlights, icons',
+                      controller: _accentHexController,
+                      errorMessage: _accentErrorMessage,
+                      previewColor: accentColor,
+                      accentColor: accentColor,
+                      textColor: textColor,
+                      onApply: _applyAccentColor,
+                    ),
+                    SizedBox(height: 20.h),
 
-                      // Primary Color Section
-                      _buildColorSection(
-                        title: 'Primary Color',
-                        subtitle: 'Navigation bar, text, headings',
-                        controller: _primaryHexController,
-                        errorMessage: _primaryErrorMessage,
-                        previewColor: primaryColor,
-                        accentColor: accentColor,
-                        textColor: textColor,
-                        onApply: _applyPrimaryColor,
-                      ),
-                      SizedBox(height: 20.h),
+                    // Primary Color Section
+                    _buildColorSection(
+                      title: 'Primary Color',
+                      subtitle: 'Navigation bar, text, headings',
+                      controller: _primaryHexController,
+                      errorMessage: _primaryErrorMessage,
+                      previewColor: primaryColor,
+                      accentColor: accentColor,
+                      textColor: textColor,
+                      onApply: _applyPrimaryColor,
+                    ),
+                    SizedBox(height: 20.h),
 
-                      // Text Color Section
-                      _buildColorSection(
-                        title: 'App Text Color',
-                        subtitle: 'Text throughout the entire application',
-                        controller: _textHexController,
-                        errorMessage: _textErrorMessage,
-                        previewColor: textColor,
-                        accentColor: accentColor,
-                        textColor: textColor,
-                        onApply: _applyTextColor,
-                      ),
-                      SizedBox(height: 20.h),
+                    // Text Color Section
+                    _buildColorSection(
+                      title: 'App Text Color',
+                      subtitle: 'Text throughout the entire application',
+                      controller: _textHexController,
+                      errorMessage: _textErrorMessage,
+                      previewColor: textColor,
+                      accentColor: accentColor,
+                      textColor: textColor,
+                      onApply: _applyTextColor,
+                    ),
+                    SizedBox(height: 20.h),
 
-                      // Highlight Text Color Section
-                      _buildColorSection(
-                        title: 'Highlighted Text Color',
-                        subtitle: 'Text on buttons and highlighted areas',
-                        controller: _highlightTextHexController,
-                        errorMessage: _highlightTextErrorMessage,
-                        previewColor: highlightTextColor,
-                        accentColor: accentColor,
-                        textColor: textColor,
-                        onApply: _applyHighlightTextColor,
-                      ),
-                      SizedBox(height: 32.h),
-                      _HomeScreenCustomizationComponent(accentColor: accentColor),
-                      SizedBox(height: 32.h),
-                      _ProfileScreenCustomizationComponent(accentColor: accentColor),
-                      SizedBox(height: 32.h),
-                      ...List.generate(4, (index) => Column(
-                        children: [
-                          _BookingStepCard(stepNumber: index + 1, accentColor: accentColor),
-                          if (index < 3) SizedBox(height: 32.h),
-                        ],
-                      )),
-                    ],
-                  ),
+                    // Highlight Text Color Section
+                    _buildColorSection(
+                      title: 'Highlighted Text Color',
+                      subtitle: 'Text on buttons and highlighted areas',
+                      controller: _highlightTextHexController,
+                      errorMessage: _highlightTextErrorMessage,
+                      previewColor: highlightTextColor,
+                      accentColor: accentColor,
+                      textColor: textColor,
+                      onApply: _applyHighlightTextColor,
+                    ),
+                    SizedBox(height: 32.h),
+                    _HomeScreenCustomizationComponent(accentColor: accentColor),
+                    SizedBox(height: 20.h),
+                    _ProfileScreenCustomizationComponent(accentColor: accentColor),
+                    SizedBox(height: 20.h),
+                    ...List.generate(4, (index) => Column(
+                      children: [
+                        _BookingStepCard(stepNumber: index + 1, accentColor: accentColor),
+                        if (index < 3) SizedBox(height: 20.h),
+                      ],
+                    )),
+                  ],
                 ),
               ),
             ),
-          ],
-        ),
+          ),
+          if (_isUpdating)
+            Container(
+              color: Colors.black.withOpacity(0.3),
+              child: const Center(
+                child: CircularProgressIndicator(),
+              ),
+            ),
+        ],
       ),
     );
   }

@@ -60,18 +60,8 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       }
     } on DioException catch (e) {
       if (mounted) {
-        String errorMessage = 'Invalid credentials';
-        
-        // Try to get the error message from the response data if available
-        if (e.response != null && e.response?.data != null) {
-          final data = e.response?.data;
-          if (data is Map<String, dynamic> && data.containsKey('message')) {
-            errorMessage = data['message'].toString();
-          }
-        }
-        
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
+          const SnackBar(content: Text('Invalid credentials')),
         );
       }
     } catch (e) {

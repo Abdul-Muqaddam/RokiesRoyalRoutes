@@ -14,19 +14,33 @@ class PreferencesManager {
 
   PreferencesManager(this._prefs);
 
-  static const _tokenKey = 'auth_token';
-  static const _userIdKey = 'user_id';
+  static const String _keyToken = 'auth_token';
+  static const String _userIdKey = 'user_id';
+  static const String _keyAdminRememberMe = 'admin_remember_me';
+  static const String _keyAdminToken = 'admin_auth_token';
 
   Future<void> saveToken(String token) async {
-    await _prefs.setString(_tokenKey, token);
+    await _prefs.setString(_keyToken, token);
   }
 
   String? getToken() {
-    return _prefs.getString(_tokenKey);
+    return _prefs.getString(_keyToken);
   }
 
-  Future<void> clearToken() async {
-    await _prefs.remove(_tokenKey);
+  Future<void> removeToken() async {
+    await _prefs.remove(_keyToken);
+  }
+
+  Future<void> saveAdminToken(String token) async {
+    await _prefs.setString(_keyAdminToken, token);
+  }
+
+  String? getAdminToken() {
+    return _prefs.getString(_keyAdminToken);
+  }
+
+  Future<void> removeAdminToken() async {
+    await _prefs.remove(_keyAdminToken);
   }
 
   Future<void> saveUserId(int id) async {

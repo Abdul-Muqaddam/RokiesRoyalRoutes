@@ -134,7 +134,7 @@ final appHighlightTextColorProvider =
 class AppHighlightTextColorNotifier extends StateNotifier<Color> {
   final SharedPreferences _prefs;
   static const _colorKey = 'app_custom_highlight_text_color';
-  static const defaultColor = Color(0xFFD4AF37); // gold
+  static const defaultColor = Color(0xFF001F3F); // navy
 
   AppHighlightTextColorNotifier(this._prefs) : super(_loadInitialColor(_prefs));
 
