@@ -191,7 +191,9 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
     bool isEnabled = true;
     if (currentStepType == BookingStep.locations) {
-      isEnabled = state.pickupLocation.isNotEmpty && state.destination.isNotEmpty;
+      isEnabled = state.pickupLocation.isNotEmpty && 
+                  state.destination.isNotEmpty && 
+                  (state.distance != null || state.isFlightMode == true);
     } else if (currentStepType == BookingStep.vehicle) {
       isEnabled = state.selectedVehicle != null;
     }
@@ -281,10 +283,16 @@ class _BookingStep1 extends ConsumerWidget {
                     onTap: viewModel.fetchCurrentLocation,
                     child: Padding(
                       padding: EdgeInsets.only(top: 8.h, bottom: 24.h),
-                      child: Text(
-                        'Choose your current location',
-                        style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 13.sp, fontWeight: FontWeight.w500),
+                    child: Text(
+                      'Choose your current location',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.secondary,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                        decoration: TextDecoration.underline,
+                        decorationColor: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
                       ),
+                    ),
                     ),
                   ),
                   _LocationField(
@@ -297,6 +305,36 @@ class _BookingStep1 extends ConsumerWidget {
                     suggestions: state.destinationSuggestions,
                     onSuggestionTap: (p) => viewModel.selectSuggestion(p, false),
                   ),
+                  if (state.isFlightMode == true) ...[
+                    SizedBox(height: 16.h),
+                    _buildFlightModeBanner(context, viewModel, state),
+                  ],
+                  if (state.distance == null) ...[
+                    SizedBox(height: 16.h),
+                    _buildCalculateButton(context, viewModel, state),
+                  ],
+                  if (state.error != null && state.isFlightMode != true) ...[
+                    SizedBox(height: 12.h),
+                    Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 4.w),
+                      child: Text(
+                        state.error!,
+                        style: TextStyle(color: Colors.red[700], fontSize: 13.sp, fontWeight: FontWeight.w500),
+                      ),
+                    ),
+                    if (state.error!.contains('Flight Mode')) ...[
+                      SizedBox(height: 12.h),
+                      OutlinedButton(
+                        onPressed: () => viewModel.setFlightMode(true),
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                          minimumSize: Size(double.infinity, 45.h),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                        ),
+                        child: Text('Switch to Flight Mode', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ],
                   SizedBox(height: 24.h),
                 ],
               );
@@ -354,15 +392,6 @@ class _BookingStep1 extends ConsumerWidget {
                   if (state.distance != null) ...[
                     _buildDistanceCard(context, state),
                     SizedBox(height: 24.h),
-                  ] else if (state.error != null) ...[
-                    Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 4.w),
-                      child: Text(
-                        state.error!,
-                        style: TextStyle(color: Colors.red[700], fontSize: 13.sp, fontWeight: FontWeight.w500),
-                      ),
-                    ),
-                    SizedBox(height: 16.h),
                   ],
                 ],
               );
@@ -392,11 +421,62 @@ class _BookingStep1 extends ConsumerWidget {
           style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
         ),
         SizedBox(height: 16.h),
-        ...state.savedPlaces.map((item) => _SavedPlaceCard(
+        ... (state.showAllSavedPlaces 
+            ? state.savedPlaces 
+            : state.savedPlaces.take(3)).map((item) => _SavedPlaceCard(
           item: item,
           onTap: () => viewModel.selectLocation(item, false),
         )),
+        if (state.savedPlaces.length > 3)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              onPressed: viewModel.toggleShowAllSavedPlaces,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                state.showAllSavedPlaces ? 'Show Less' : 'Show More',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.secondary, 
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14.sp,
+                ),
+              ),
+            ),
+          ),
       ],
+    );
+  }
+
+  Widget _buildFlightModeBanner(BuildContext context, BookingViewModel viewModel, BookingState state) {
+    return Container(
+      padding: EdgeInsets.all(16.w),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          SvgPicture.asset('assets/icons/ic_flight.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 20.w),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              'Flight Mode (Air Distance): Driving route not required.',
+              style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 13.sp),
+            ),
+          ),
+          IconButton(
+            onPressed: () => viewModel.setFlightMode(false),
+            icon: Icon(Icons.close, size: 20.sp, color: Theme.of(context).colorScheme.secondary),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
+        ],
+      ),
     );
   }
 
@@ -508,7 +588,7 @@ class _BookingStep1 extends ConsumerWidget {
   }
 }
 
-class _LocationField extends StatelessWidget {
+class _LocationField extends StatefulWidget {
   final String label;
   final String hint;
   final String icon;
@@ -530,25 +610,55 @@ class _LocationField extends StatelessWidget {
   });
 
   @override
+  State<_LocationField> createState() => _LocationFieldState();
+}
+
+class _LocationFieldState extends State<_LocationField> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.value);
+  }
+
+  @override
+  void didUpdateWidget(_LocationField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.value != _controller.text) {
+      _controller.text = widget.value;
+      _controller.selection = TextSelection.fromPosition(
+        TextPosition(offset: _controller.text.length),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w600)),
+        Text(widget.label, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w600)),
         SizedBox(height: 8.h),
         TextField(
-          controller: TextEditingController(text: value)..selection = TextSelection.fromPosition(TextPosition(offset: value.length)),
-          onChanged: onChanged,
+          controller: _controller,
+          onChanged: widget.onChanged,
           decoration: InputDecoration(
-            hintText: hint,
+            hintText: widget.hint,
             hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14.sp),
             prefixIcon: Padding(
               padding: EdgeInsets.all(12.w),
               child: SvgPicture.asset(
-                icon, 
+                widget.icon, 
                 width: 20.w,
                 height: 20.w,
-                colorFilter: ColorFilter.mode(iconColor ?? Colors.grey, BlendMode.srcIn)
+                colorFilter: ColorFilter.mode(widget.iconColor ?? Colors.grey, BlendMode.srcIn)
               ),
             ),
             filled: true,
@@ -556,7 +666,7 @@ class _LocationField extends StatelessWidget {
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide.none),
           ),
         ),
-        if (suggestions.isNotEmpty)
+        if (widget.suggestions.isNotEmpty)
           Container(
             margin: EdgeInsets.only(top: 4.h),
             decoration: BoxDecoration(
@@ -567,13 +677,13 @@ class _LocationField extends StatelessWidget {
             child: ListView.builder(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: suggestions.length,
+              itemCount: widget.suggestions.length,
               itemBuilder: (context, index) {
-                final s = suggestions[index];
+                final s = widget.suggestions[index];
                 return ListTile(
                   title: Text(s.structuredFormatting.mainText, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
                   subtitle: Text(s.description, style: TextStyle(fontSize: 11.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  onTap: () => onSuggestionTap(s),
+                  onTap: () => widget.onSuggestionTap(s),
                 );
               },
             ),
@@ -1235,10 +1345,10 @@ class _SummaryCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Selected Vehicle', style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
+                    Text('Selected Vehicle', style: TextStyle(color: Theme.of(context).colorScheme.onSecondary.withValues(alpha: 0.7), fontSize: 11.sp)),
                     Text(
                       state.selectedVehicle?.name ?? 'N/A', 
-                      style: TextStyle(color: Colors.white, fontSize: 14.sp, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSecondary, fontSize: 14.sp, fontWeight: FontWeight.bold),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -1249,7 +1359,7 @@ class _SummaryCard extends StatelessWidget {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  Text('Total Cost', style: TextStyle(color: Colors.white70, fontSize: 11.sp)),
+                  Text('Total Cost', style: TextStyle(color: Theme.of(context).colorScheme.onSecondary.withValues(alpha: 0.7), fontSize: 11.sp)),
                   FittedBox(
                     fit: BoxFit.scaleDown,
                     child: Text(
@@ -1262,7 +1372,7 @@ class _SummaryCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 16.h),
-          const Divider(color: Colors.white24),
+          Divider(color: Theme.of(context).colorScheme.onSecondary.withValues(alpha: 0.2)),
           SizedBox(height: 16.h),
           _SummaryItem(label: 'Pickup', value: state.pickupLocation),
           SizedBox(height: 12.h),
@@ -1365,9 +1475,9 @@ class _SummaryItem extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('$label: ', style: TextStyle(color: Colors.white70, fontSize: 12.sp)),
+        Text('$label: ', style: TextStyle(color: Theme.of(context).colorScheme.onSecondary.withValues(alpha: 0.7), fontSize: 12.sp)),
         Expanded(
-          child: Text(value, style: TextStyle(color: Colors.white, fontSize: 12.sp, fontWeight: FontWeight.w600)),
+          child: Text(value, style: TextStyle(color: Theme.of(context).colorScheme.onSecondary, fontSize: 12.sp, fontWeight: FontWeight.w600)),
         ),
       ],
     );

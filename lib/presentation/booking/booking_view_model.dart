@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../data/remote/api_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/models/booking_models.dart';
@@ -40,9 +42,11 @@ class BookingState {
   final String? saveStatus;
   final BookingResponse? bookingStatus;
   final bool showAllRecent;
+  final bool showAllSavedPlaces;
   final bool requiresPayment;
   final String? checkoutUrl;
   final String? paymentType;
+  final bool isFlightMode;
 
   BookingState({
     this.currentStep = 0,
@@ -74,9 +78,11 @@ class BookingState {
     this.saveStatus,
     this.bookingStatus,
     this.showAllRecent = false,
+    this.showAllSavedPlaces = false,
     this.requiresPayment = false,
     this.checkoutUrl,
     this.paymentType,
+    this.isFlightMode = false,
   }) : selectedDate = selectedDate ?? DateTime.now();
 
   BookingState copyWith({
@@ -109,9 +115,11 @@ class BookingState {
     String? saveStatus,
     BookingResponse? bookingStatus,
     bool? showAllRecent,
+    bool? showAllSavedPlaces,
     bool? requiresPayment,
     String? checkoutUrl,
     String? paymentType,
+    bool? isFlightMode,
   }) {
     return BookingState(
       currentStep: currentStep ?? this.currentStep,
@@ -143,9 +151,11 @@ class BookingState {
       saveStatus: saveStatus ?? this.saveStatus,
       bookingStatus: bookingStatus ?? this.bookingStatus,
       showAllRecent: showAllRecent ?? this.showAllRecent,
+      showAllSavedPlaces: showAllSavedPlaces ?? this.showAllSavedPlaces,
       requiresPayment: requiresPayment ?? this.requiresPayment,
       checkoutUrl: checkoutUrl ?? this.checkoutUrl,
       paymentType: paymentType ?? this.paymentType,
+      isFlightMode: isFlightMode ?? this.isFlightMode,
     );
   }
 }
@@ -181,7 +191,8 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         savedPlaces.addAll(savedResponse.custom!.map((e) => LocationItem(name: e.name, address: e.address)));
       }
       
-      state = AsyncValue.data(BookingState(
+      final currentState = state.value ?? BookingState();
+      state = AsyncValue.data(currentState.copyWith(
         availableVehicles: vehicles,
         paymentGateways: gateways,
         recentDestinations: recent,
@@ -193,12 +204,24 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void updatePickupLocation(String value) {
-    state = AsyncValue.data(state.value!.copyWith(pickupLocation: value, error: null));
+    state = AsyncValue.data(state.value!.copyWith(
+      pickupLocation: value, 
+      error: null,
+      distance: null, 
+      duration: null,
+      isFlightMode: false,
+    ));
     _fetchSuggestions(value, true);
   }
 
   void updateDestination(String value) {
-    state = AsyncValue.data(state.value!.copyWith(destination: value, error: null));
+    state = AsyncValue.data(state.value!.copyWith(
+      destination: value, 
+      error: null,
+      distance: null, 
+      duration: null,
+      isFlightMode: false,
+    ));
     _fetchSuggestions(value, false);
   }
 
@@ -233,21 +256,53 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
       state = AsyncValue.data(state.value!.copyWith(
         pickupLocation: prediction.description,
         pickupSuggestions: [],
+        distance: null,
+        duration: null,
+        isFlightMode: false,
       ));
     } else {
       state = AsyncValue.data(state.value!.copyWith(
         destination: prediction.description,
         destinationSuggestions: [],
+        distance: null,
+        duration: null,
+        isFlightMode: false,
       ));
     }
-    calculateDistance();
   }
 
   Future<void> calculateDistance() async {
     final s = state.value!;
     if (s.pickupLocation.isEmpty || s.destination.isEmpty) return;
 
+    state = AsyncValue.data(s.copyWith(isLoading: true, error: null));
+
     try {
+      if (s.isFlightMode == true) {
+        // Air distance calculation fallback
+        final pickupCoords = await locationFromAddress(s.pickupLocation);
+        final destCoords = await locationFromAddress(s.destination);
+
+        if (pickupCoords.isNotEmpty && destCoords.isNotEmpty) {
+          final distanceInMeters = Geolocator.distanceBetween(
+            pickupCoords[0].latitude,
+            pickupCoords[0].longitude,
+            destCoords[0].latitude,
+            destCoords[0].longitude,
+          );
+
+          final distanceInKm = distanceInMeters / 1000;
+          
+          state = AsyncValue.data(state.value!.copyWith(
+            distance: '${distanceInKm.toStringAsFixed(1)} km (Air)',
+            duration: 'N/A',
+            isLoading: false,
+            error: null,
+          ));
+          return;
+        }
+      }
+
       final response = await ref.read(bookingRepositoryProvider).getDistanceMatrix(s.pickupLocation, s.destination);
       if (response.status == 'OK' && response.rows.isNotEmpty) {
         final element = response.rows[0].elements[0];
@@ -255,18 +310,21 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
           state = AsyncValue.data(state.value!.copyWith(
             distance: element.distance?.text,
             duration: element.duration?.text,
+            isLoading: false,
             error: null,
           ));
         } else if (element.status == 'ZERO_RESULTS') {
           state = AsyncValue.data(state.value!.copyWith(
             distance: null,
             duration: null,
-            error: 'No driving route found between these locations.',
+            isLoading: false,
+            error: 'No driving route found. Would you like to use Flight Mode?',
           ));
         } else {
           state = AsyncValue.data(state.value!.copyWith(
             distance: null,
             duration: null,
+            isLoading: false,
             error: 'Could not calculate distance: ${element.status}',
           ));
         }
@@ -274,6 +332,7 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         state = AsyncValue.data(state.value!.copyWith(
           distance: null,
           duration: null,
+          isLoading: false,
           error: 'Distance Matrix API Error: ${response.status}',
         ));
       }
@@ -281,6 +340,7 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
       state = AsyncValue.data(state.value!.copyWith(
         distance: null,
         duration: null,
+        isLoading: false,
         error: 'Failed to calculate distance. Please try again.',
       ));
     }
@@ -367,8 +427,10 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
       state = AsyncValue.data(state.value!.copyWith(
         pickupLocation: address,
         isLoading: false,
+        distance: null,
+        duration: null,
+        isFlightMode: false,
       ));
-      calculateDistance();
     } catch (e) {
       state = AsyncValue.data(state.value!.copyWith(isLoading: false, error: e.toString()));
     }
@@ -376,11 +438,22 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
 
   void selectLocation(LocationItem item, bool isPickup) {
     if (isPickup) {
-      state = AsyncValue.data(state.value!.copyWith(pickupLocation: item.address, pickupSuggestions: []));
+      state = AsyncValue.data(state.value!.copyWith(
+        pickupLocation: item.address, 
+        pickupSuggestions: [],
+        distance: null,
+        duration: null,
+        isFlightMode: false,
+      ));
     } else {
-      state = AsyncValue.data(state.value!.copyWith(destination: item.address, destinationSuggestions: []));
+      state = AsyncValue.data(state.value!.copyWith(
+        destination: item.address, 
+        destinationSuggestions: [],
+        distance: null,
+        duration: null,
+        isFlightMode: false,
+      ));
     }
-    calculateDistance();
   }
 
   void clearStatus() {
@@ -407,6 +480,21 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
 
   void toggleShowAllRecent() {
     state = AsyncValue.data(state.value!.copyWith(showAllRecent: !state.value!.showAllRecent));
+  }
+
+  void setFlightMode(bool enabled) {
+    state = AsyncValue.data(state.value!.copyWith(
+      isFlightMode: enabled,
+      error: enabled ? null : state.value!.error,
+    ));
+
+    if (enabled) {
+      calculateDistance();
+    }
+  }
+
+  void toggleShowAllSavedPlaces() {
+    state = AsyncValue.data(state.value!.copyWith(showAllSavedPlaces: !state.value!.showAllSavedPlaces));
   }
 
   Future<void> createBooking() async {

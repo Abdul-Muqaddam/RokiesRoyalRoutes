@@ -150,7 +150,7 @@ class _TripTabButton extends StatelessWidget {
         onPressed: onClick,
         style: ElevatedButton.styleFrom(
           backgroundColor: isSelected ? Theme.of(context).colorScheme.secondary : AppColors.lightGray,
-          foregroundColor: isSelected ? Theme.of(context).textTheme.bodyLarge?.color : Colors.grey,
+          foregroundColor: isSelected ? Theme.of(context).colorScheme.onSecondary : Colors.grey,
           elevation: 0,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
           padding: EdgeInsets.symmetric(horizontal: 4.w),
@@ -309,8 +309,8 @@ class _TripCard extends StatelessWidget {
                       // Navigate to details
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.secondary,
-                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onSecondary,
                       elevation: 0,
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
                     ),

@@ -203,12 +203,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Current Location', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 12.sp, fontWeight: FontWeight.w500)),
+                      Text('Current Location', style: TextStyle(color: Theme.of(context).colorScheme.onSecondary, fontSize: 12.sp, fontWeight: FontWeight.w500)),
                       SizedBox(height: 4.h),
                       ref.watch(currentLocationProvider).when(
-                        data: (location) => Text(location, style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
-                        loading: () => Text('Detecting...', style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600)),
-                        error: (err, stack) => Text('Location unavailable', style: TextStyle(color: AppColors.white, fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                        data: (location) => Text(location, style: TextStyle(color: Theme.of(context).colorScheme.onSecondary, fontSize: 14.sp, fontWeight: FontWeight.w600), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        loading: () => Text('Detecting...', style: TextStyle(color: Theme.of(context).colorScheme.onSecondary, fontSize: 14.sp, fontWeight: FontWeight.w600)),
+                        error: (err, stack) => Text('Location unavailable', style: TextStyle(color: Theme.of(context).colorScheme.onSecondary, fontSize: 14.sp, fontWeight: FontWeight.w600)),
                       ),
                     ],
                   ),
@@ -217,7 +217,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 Container(
                   width: 40.w, height: 40.w, padding: EdgeInsets.all(10.w),
                   decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.2), shape: BoxShape.circle),
-                  child: SvgPicture.asset('assets/icons/ic_location.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn)),
+                  child: SvgPicture.asset('assets/icons/ic_location.svg', colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.onSecondary, BlendMode.srcIn)),
                 ),
               ],
             ),
@@ -343,16 +343,40 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         children: [
           Container(
-            height: 110.h,
-            padding: EdgeInsets.all(12.w),
+            height: 100.h,
+            width: double.infinity,
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(16.r),
             ),
-            child: Image.network(imageUrl, fit: BoxFit.contain),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16.r),
+              child: Image.network(
+                imageUrl, 
+                fit: BoxFit.contain,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.5),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) => Center(
+                  child: Icon(Icons.directions_car, color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3), size: 32.w),
+                ),
+              ),
+            ),
           ),
           SizedBox(height: 8.h),
-          Text(name, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 12.sp, fontWeight: FontWeight.w600)),
+          Text(
+            name, 
+            style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 12.sp, fontWeight: FontWeight.w600),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
           Text('$passengers Passengers', style: TextStyle(color: Colors.grey, fontSize: 10.sp)),
         ],
       ),

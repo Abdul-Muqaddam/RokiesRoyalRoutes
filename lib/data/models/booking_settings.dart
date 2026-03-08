@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../local/preferences_manager.dart';
 
-enum BookingStep1Section { header, locationFields, recentPlaces, savedPlaces, distanceCard, saveLocation }
+enum BookingStep1Section { header, locationFields, distanceCard, recentPlaces, savedPlaces, saveLocation }
 enum BookingStep2Section { timeType, dateSelector, timeGrid, customTime, infoBox }
 enum BookingStep3Section { categoryTabs, vehicleList }
 enum BookingStep4Section { summaryCard, tripDetails, personalDetails, noteField, paymentMethods, requirements }
@@ -42,7 +42,14 @@ class BookingSettings {
       steps: BookingStep.values.toList(),
       visibility: { for (var v in BookingStep.values) v: true },
       
-      step1Order: BookingStep1Section.values.toList(),
+      step1Order: [
+        BookingStep1Section.header,
+        BookingStep1Section.locationFields,
+        BookingStep1Section.distanceCard,
+        BookingStep1Section.recentPlaces,
+        BookingStep1Section.savedPlaces,
+        BookingStep1Section.saveLocation,
+      ],
       step1Visibility: { for (var v in BookingStep1Section.values) v: true },
       
       step2Order: BookingStep2Section.values.toList(),
@@ -130,11 +137,66 @@ class BookingSettingsNotifier extends StateNotifier<BookingSettings> {
     _loadSettings();
   }
 
+  BookingSettings _applyMigration(BookingSettings settings) {
+    // Force the logical order for Step 1 sections
+    final requiredOrder = [
+      BookingStep1Section.header,
+      BookingStep1Section.locationFields,
+      BookingStep1Section.distanceCard,
+      BookingStep1Section.recentPlaces,
+      BookingStep1Section.savedPlaces,
+      BookingStep1Section.saveLocation,
+    ];
+    
+    bool needsUpdate = false;
+    // Check order
+    if (settings.step1Order.length != requiredOrder.length) {
+      needsUpdate = true;
+    } else {
+      for (int i = 0; i < requiredOrder.length; i++) {
+        if (settings.step1Order[i] != requiredOrder[i]) {
+          needsUpdate = true;
+          break;
+        }
+      }
+    }
+
+    // Check visibility for critical sections
+    final newVisibility = Map<BookingStep1Section, bool>.from(settings.step1Visibility);
+    if (!(newVisibility[BookingStep1Section.locationFields] ?? true)) {
+      newVisibility[BookingStep1Section.locationFields] = true;
+      needsUpdate = true;
+    }
+    if (!(newVisibility[BookingStep1Section.header] ?? true)) {
+      newVisibility[BookingStep1Section.header] = true;
+      needsUpdate = true;
+    }
+    if (!(newVisibility[BookingStep1Section.distanceCard] ?? true)) {
+      newVisibility[BookingStep1Section.distanceCard] = true;
+      needsUpdate = true;
+    }
+
+    if (needsUpdate) {
+      final updated = settings.copyWith(
+        step1Order: requiredOrder,
+        step1Visibility: newVisibility,
+      );
+      _saveSettingsDirectly(updated);
+      return updated;
+    }
+    return settings;
+  }
+
+  Future<void> _saveSettingsDirectly(BookingSettings settings) async {
+    await _prefs.setString(_key, json.encode(settings.toJson()));
+  }
+
   void _loadSettings() {
     final jsonString = _prefs.getString(_key);
     if (jsonString != null) {
       try {
-        state = BookingSettings.fromJson(json.decode(jsonString));
+        final settings = BookingSettings.fromJson(json.decode(jsonString));
+        state = _applyMigration(settings);
       } catch (_) {
         state = BookingSettings.defaultSettings();
       }
@@ -142,7 +204,7 @@ class BookingSettingsNotifier extends StateNotifier<BookingSettings> {
   }
 
   Future<void> setSettings(BookingSettings settings) async {
-    state = settings;
+    state = _applyMigration(settings);
     await _saveSettings();
   }
 
