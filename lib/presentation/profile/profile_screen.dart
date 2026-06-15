@@ -1,304 +1,348 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import '../../core/theme/app_theme.dart';
-import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
-import '../../data/local/preferences_manager.dart';
-import 'saved_locations_view_model.dart';
-import 'location_dialogs.dart';
-import '../../data/models/profile_settings.dart';
-import 'package:url_launcher/url_launcher.dart';
+import '../../data/models/user_models.dart';
+import '../../core/utils/countries.dart';
 
-class ProfileScreen extends ConsumerWidget {
+class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final userAsyncValue = ref.watch(userProfileProvider);
-    final locationsAsync = ref.watch(savedLocationsViewModelProvider);
-    final profileSettings = ref.watch(profileSettingsProvider);
+  ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends ConsumerState<ProfileScreen> {
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  String _selectedGender = 'Male';
+  bool _isLoading = false;
+  String _countryCode = '+880';
+  String _countryFlag = 'bd';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  void _loadUserData() async {
+    final user = await ref.read(userProfileProvider.future);
+    if (mounted) {
+      setState(() {
+        _nameController.text = user.name;
+        _emailController.text = user.email;
+        _phoneController.text = user.phone;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _addressController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleUpdate() async {
+    setState(() => _isLoading = true);
+    try {
+      final repository = ref.read(userRepositoryProvider);
+      final request = UpdateProfileRequest(
+        name: _nameController.text,
+        phone: _phoneController.text,
+      );
+      
+      final response = await repository.updateProfile(request);
+      if (response.success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile updated successfully')),
+        );
+        ref.invalidate(userProfileProvider);
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final userAsync = ref.watch(userProfileProvider);
+    const Color brandYellow = Color(0xFFDC423D);
 
     return Scaffold(
-      backgroundColor: AppColors.white,
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.primary,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.white),
-          onPressed: () => context.pop(),
-        ),
-        title: const Text('Profile', style: TextStyle(color: AppColors.white, fontWeight: FontWeight.bold)),
-      ),
-      body: userAsyncValue.when(
-        data: (user) => _buildDynamicProfileContent(context, ref, user, locationsAsync, profileSettings),
-        loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary)),
-        error: (error, stack) => Center(child: Text('Error: $error', style: const TextStyle(color: Colors.red))),
-      ),
-    );
-  }
-
-  Widget _buildDynamicProfileContent(
-    BuildContext context,
-    WidgetRef ref,
-    dynamic user,
-    AsyncValue<List<dynamic>> locationsAsync,
-    ProfileSettings settings,
-  ) {
-    final sectionWidgets = {
-      ProfileSection.header: _buildHeader(context, user),
-      ProfileSection.accountSettings: _buildAccountSettings(context, ref, locationsAsync),
-      ProfileSection.support: _buildSupport(context),
-      ProfileSection.logout: _buildLogout(context, ref),
-      ProfileSection.footer: _buildFooter(context),
-    };
-
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: settings.sections.map((section) {
-          if (settings.visibility[section] == false) return const SizedBox.shrink();
-          return sectionWidgets[section] ?? const SizedBox.shrink();
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context, dynamic user) {
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [Theme.of(context).colorScheme.primary, const Color(0xFF111111)],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
-      ),
-      padding: EdgeInsets.all(24.w),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 80.w,
-                height: 80.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Theme.of(context).colorScheme.secondary, width: 4.w),
-                ),
-                child: ClipOval(
-                  child: user.avatarUrl.isNotEmpty
-                      ? Image.network(user.avatarUrl, fit: BoxFit.cover, errorBuilder: (_, _, _) => _defaultAvatar(context))
-                      : _defaultAvatar(context),
-                ),
-              ),
-              SizedBox(width: 16.w),
-              Expanded(
-                child: Text(
-                  user.displayName,
-                  style: TextStyle(color: AppColors.white, fontSize: 22.sp, fontWeight: FontWeight.bold),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          SizedBox(height: 24.h),
-          Row(
-            children: [
-              Expanded(child: _buildStatCard(user.totalTrips.toString(), 'Total Trips')),
-              SizedBox(width: 12.w),
-              Expanded(child: _buildStatCard(user.totalSpent, 'Spent')),
-            ],
-          )
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAccountSettings(BuildContext context, WidgetRef ref, AsyncValue<List<dynamic>> locationsAsync) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24.w, 24.w, 24.w, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Account Settings', style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold)),
-          SizedBox(height: 16.h),
-          _buildSettingItem(context,
-            title: 'Personal Information',
-            subtitle: 'Update your details',
-            iconAsset: 'assets/icons/ic_user.svg',
-            onTap: () => context.push('/personal-info'),
-          ),
-          SizedBox(height: 12.h),
-          _buildSettingItem(context,
-            title: 'Change Password',
-            subtitle: 'Update your security',
-            iconAsset: 'assets/icons/ic_lock.svg',
-            onTap: () => context.push('/change-password'),
-          ),
-          SizedBox(height: 12.h),
-          _buildSettingItem(context,
-            title: 'Saved Locations',
-            subtitle: locationsAsync.maybeWhen(
-              data: (locations) => locations.isEmpty
-                  ? 'No places saved'
-                  : '${locations.length} ${locations.length == 1 ? 'place' : 'places'} saved',
-              orElse: () => 'Manage your addresses',
-            ),
-            iconAsset: 'assets/icons/ic_location.svg',
-            onTap: () => showDialog(
-              context: context,
-              builder: (context) => const SavedPlacesDialog(),
-            ),
-          ),
-          SizedBox(height: 12.h),
-          _buildSettingItem(context,
-            title: 'Customize App',
-            subtitle: 'Customize the app settings',
-            iconAsset: 'assets/icons/ic_customization.svg',
-            onTap: () {
-              final prefs = ref.read(preferencesManagerProvider);
-              if (prefs.getAdminRememberMe()) {
-                context.push('/customization');
-              } else {
-                context.push('/admin-login');
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSupport(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Support', style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold)),
-          SizedBox(height: 16.h),
-          _buildSettingItem(context,
-            title: 'Help Center',
-            subtitle: 'Contact support',
-            iconAsset: 'assets/icons/ic_email.svg',
-            onTap: () async {
-              final Uri emailLaunchUri = Uri(
-                scheme: 'mailto',
-                path: 'testing@mobile.com',
-                query: 'subject=${Uri.encodeComponent("need support help needed")}',
-              );
-              if (await canLaunchUrl(emailLaunchUri)) {
-                await launchUrl(emailLaunchUri);
-              } else {
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Could not open email client')),
-                  );
-                }
-              }
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildLogout(BuildContext context, WidgetRef ref) {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 0),
-      child: ElevatedButton(
-        onPressed: () {
-          ref.read(authRepositoryProvider).logout();
-          context.go('/login');
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFFFFEBEE), // DeleteBg
-          foregroundColor: const Color(0xFFD32F2F), // DeleteText
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-          padding: EdgeInsets.symmetric(vertical: 16.h),
-          minimumSize: Size(double.infinity, 50.h),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
           children: [
-            SvgPicture.asset('assets/icons/ic_logout.svg', colorFilter: const ColorFilter.mode(Color(0xFFD32F2F), BlendMode.srcIn), width: 18.w, height: 18.w),
-            SizedBox(width: 8.w),
-            Text('Sign Out', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
+            SizedBox(height: 15.h),
+            _buildTopAppBar(context),
+            SizedBox(height: 15.h),
+            Expanded(
+              child: userAsync.when(
+                data: (user) => SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.all(24.r),
+                  child: Column(
+                    children: [
+                      _buildAvatarSection(user, brandYellow),
+                      SizedBox(height: 32.h),
+                      _buildTextField('Full Name', _nameController, Icons.person_outline),
+                      SizedBox(height: 16.h),
+                      _buildTextField('Email', _emailController, Icons.email_outlined, enabled: false),
+                      SizedBox(height: 16.h),
+                      _buildPhoneField(brandYellow),
+                      SizedBox(height: 16.h),
+                      _buildGenderDropdown(),
+                      SizedBox(height: 16.h),
+                      _buildTextField('Address', _addressController, Icons.location_on_outlined),
+                      SizedBox(height: 32.h),
+                      _buildUpdateButton(brandYellow),
+                      SizedBox(height: 120.h),
+                    ],
+                  ),
+                ),
+                loading: () => const Center(child: CircularProgressIndicator(color: brandYellow)),
+                error: (err, _) => Center(child: Text('Error: $err')),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFooter(BuildContext context) {
+  Widget _buildTopAppBar(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 24.h),
-      child: Center(child: Text('Rockies Royal Routes © 2025', style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp))),
-    );
-  }
-
-  Widget _defaultAvatar(BuildContext context) {
-    return Container(
-      color: AppColors.lightGray,
-      child: Center(
-        child: SvgPicture.asset('assets/icons/ic_user.svg', colorFilter: ColorFilter.mode(Theme.of(context).textTheme.bodyMedium!.color!.withValues(alpha: 0.5), BlendMode.srcIn), width: 40.w, height: 40.w),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String value, String label) {
-    return Container(
-      padding: EdgeInsets.symmetric(vertical: 16.h),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16.r),
-      ),
-      child: Column(
+      padding: EdgeInsets.symmetric(horizontal: 20.w),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(value, style: TextStyle(color: AppColors.white, fontSize: 24.sp, fontWeight: FontWeight.bold)),
-          SizedBox(height: 4.h),
-          Text(label, style: TextStyle(color: Colors.white70, fontSize: 12.sp)),
+          _buildCircleButton(Icons.menu, onTap: () => Scaffold.of(context).openDrawer()),
+          Text(
+            'Edit Profile',
+            style: TextStyle(color: Colors.black, fontSize: 18.sp, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(width: 42.w), // Balance for centering
         ],
       ),
     );
   }
 
-  Widget _buildSettingItem(BuildContext context, {required String title, required String subtitle, required String iconAsset, required VoidCallback onTap}) {
-    return InkWell(
+  Widget _buildCircleButton(IconData icon, {VoidCallback? onTap}) {
+    return GestureDetector(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(16.r),
       child: Container(
-        padding: EdgeInsets.all(16.w),
+        width: 42.w,
+        height: 42.w,
         decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+          color: const Color(0xFFFFEBEA),
+          borderRadius: BorderRadius.circular(10.r),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4)),
+          ],
         ),
-        child: Row(
+        child: Icon(icon, color: Colors.black87, size: 20.sp),
+      ),
+    );
+  }
+
+  Widget _buildAvatarSection(UserDto user, Color brandYellow) {
+    return Column(
+      children: [
+        Stack(
           children: [
             Container(
-              padding: EdgeInsets.all(10.w),
-              decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(12.r)),
-              child: SvgPicture.asset(iconAsset, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 20.w, height: 20.w),
+              width: 120.r,
+              height: 120.r,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: brandYellow, width: 2),
+                image: user.avatarUrl.isNotEmpty
+                    ? DecorationImage(image: NetworkImage(user.avatarUrl), fit: BoxFit.cover)
+                    : null,
+              ),
+              child: user.avatarUrl.isEmpty
+                  ? Icon(Icons.person, size: 60.r, color: Colors.grey[200])
+                  : null,
             ),
-            SizedBox(width: 16.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Positioned(
+              bottom: 4.r,
+              right: 4.r,
+              child: Container(
+                padding: EdgeInsets.all(6.r),
+                decoration: BoxDecoration(
+                  color: brandYellow,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Icon(Icons.edit_outlined, size: 14.r, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16.h),
+        Text(
+          user.name,
+          style: TextStyle(fontSize: 22.sp, fontWeight: FontWeight.bold, color: Colors.black87),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTextField(String hint, TextEditingController controller, IconData icon, {bool enabled = true}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: TextField(
+        controller: controller,
+        enabled: enabled,
+        style: TextStyle(fontSize: 15.sp, color: enabled ? Colors.black87 : Colors.grey),
+        decoration: InputDecoration(
+          hintText: hint,
+          prefixIcon: Icon(icon, color: Colors.grey[400], size: 20.sp),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhoneField(Color brandYellow) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: () => _showCountryPicker(context),
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w),
+              decoration: BoxDecoration(
+                border: Border(right: BorderSide(color: Colors.grey[200]!)),
+              ),
+              child: Row(
                 children: [
-                  Text(title, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 14.sp)),
-                  SizedBox(height: 2.h),
-                  Text(subtitle, style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp)),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(2.r),
+                    child: Image.network('https://flagcdn.com/w40/$_countryFlag.png', width: 24.w, height: 16.h, fit: BoxFit.cover),
+                  ),
+                  SizedBox(width: 4.w),
+                  Icon(Icons.keyboard_arrow_down, size: 16.sp, color: Colors.black54),
+                  SizedBox(width: 4.w),
                 ],
               ),
             ),
-            SvgPicture.asset('assets/icons/ic_chevron_right.svg', colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.srcIn), width: 20.w, height: 20.w),
+          ),
+          Expanded(
+            child: TextField(
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w500),
+              decoration: InputDecoration(
+                hintText: 'Your mobile number',
+                prefixText: '$_countryCode ',
+                prefixStyle: TextStyle(color: Colors.black87, fontSize: 15.sp, fontWeight: FontWeight.w500),
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 14.h),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showCountryPicker(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20.r))),
+      builder: (context) => Container(
+        padding: EdgeInsets.all(20.r),
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            Text('Select Country', style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+            SizedBox(height: 20.h),
+            ...countries.map((c) => _buildCountryItem(c.name, c.code, c.flag)),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildCountryItem(String name, String code, String flag) {
+    return ListTile(
+      leading: ClipRRect(
+        borderRadius: BorderRadius.circular(2.r),
+        child: Image.network('https://flagcdn.com/w40/$flag.png', width: 30.w),
+      ),
+      title: Text(name, style: TextStyle(fontSize: 15.sp)),
+      trailing: Text(code, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp)),
+      onTap: () {
+        setState(() {
+          _countryCode = code;
+          _countryFlag = flag;
+        });
+        Navigator.pop(context);
+      },
+    );
+  }
+
+  Widget _buildGenderDropdown() {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.grey[200]!),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _selectedGender,
+          isExpanded: true,
+          dropdownColor: Colors.white,
+          borderRadius: BorderRadius.circular(12.r),
+          elevation: 2,
+          icon: Icon(Icons.keyboard_arrow_down, color: Colors.black54, size: 20.sp),
+          items: ['Male', 'Female', 'Other'].map((String value) {
+            return DropdownMenuItem<String>(
+              value: value,
+              child: Text(value, style: TextStyle(fontSize: 15.sp, color: Colors.black87, fontWeight: FontWeight.w500)),
+            );
+          }).toList(),
+          onChanged: (val) => setState(() => _selectedGender = val!),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildUpdateButton(Color brandYellow) {
+    return SizedBox(
+      width: double.infinity,
+      height: 54.h,
+      child: ElevatedButton(
+        onPressed: _isLoading ? null : _handleUpdate,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: brandYellow,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+          elevation: 0,
+        ),
+        child: _isLoading
+            ? SizedBox(width: 20.r, height: 20.r, child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+            : Text('Update', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
       ),
     );
   }

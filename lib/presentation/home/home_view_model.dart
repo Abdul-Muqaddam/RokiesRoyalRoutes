@@ -25,10 +25,9 @@ class HomeViewModel extends _$HomeViewModel {
   @override
   Future<HomeState> build() async {
     final userProfile = await ref.watch(userProfileProvider.future);
-    final vehicleRepo = ref.watch(vehicleRepositoryProvider);
+    final vehicles = await ref.watch(allVehiclesProvider.future);
     final bookingRepo = ref.watch(bookingRepositoryProvider);
 
-    final vehicles = await vehicleRepo.getVehicles();
     final upcomingTrips = await bookingRepo.getUpcomingTrips();
 
     return HomeState(

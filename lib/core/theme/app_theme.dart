@@ -2,15 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppColors {
-  static const Color navy = Color(0xFF001F3F);
-  static const Color gold = Color(0xFFD4AF37);
-  static const Color goldLight = Color(0xFFFFF8E7);
+  static const Color navy = Color(0xFF1E1E1E);
+  static const Color gold = Color(0xFFDC423D);
+  static const Color goldLight = Color(0xFFFFEBEA);
   static const Color lightGray = Color(0xFFF5F5F5);
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
   static const Color mediumGray = Color(0xFF808080);
   static const Color charcoalGray = Color(0xFF333333);
   static const Color dividerGray = Color(0xFFEEEEEE);
+  static const Color darkCharcoal = Color(0xFF2C2C2C);
+  
+  // Keep for splash screen as requested by brand change
+  static const Color easyRiderYellow = Color(0xFFFBC02D);
   
   // Custom transparent white used for input fields
   static final Color inputFillColor = white.withOpacity(0.1);

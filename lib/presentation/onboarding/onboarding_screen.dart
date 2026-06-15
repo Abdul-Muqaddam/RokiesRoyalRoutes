@@ -9,37 +9,29 @@ class OnboardingPageData {
   final String title;
   final String description;
   final String imageUrl;
-  final String buttonText;
-  final bool showSkip;
 
   OnboardingPageData({
     required this.title,
     required this.description,
     required this.imageUrl,
-    required this.buttonText,
-    this.showSkip = true,
   });
 }
 
 final List<OnboardingPageData> onboardingPages = [
   OnboardingPageData(
-    title: 'Premium Fleet at Your Service',
-    description: 'Experience unparalleled comfort with our meticulously maintained collection of luxury vehicles',
-    imageUrl: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/f83471f3ec-dc37248d325e8dbe5c12.png',
-    buttonText: 'Continue',
+    title: 'Anywhere you are',
+    description: 'Sell houses easily with the help of Listenoryx and to make this line big I am writing more.',
+    imageUrl: 'assets/images/first_onboarding.png',
   ),
   OnboardingPageData(
-    title: 'Professional Chauffeurs',
-    description: 'Our expertly trained drivers ensure a smooth, safe, and discreet journey every time',
-    imageUrl: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/95454c7c78-e74374d6e8bc6d12792c.png',
-    buttonText: 'Continue',
+    title: 'At anytime',
+    description: 'Sell houses easily with the help of Listenoryx and to make this line big I am writing more.',
+    imageUrl: 'assets/images/second_onboarding.png',
   ),
   OnboardingPageData(
-    title: 'Always On Time',
-    description: 'Punctuality is our promise. Real-time tracking and proactive scheduling guarantee timely arrivals',
-    imageUrl: 'https://storage.googleapis.com/uxpilot-auth.appspot.com/d1dbd789ed-19eab019d592518d01c3.png',
-    buttonText: 'Get Started',
-    showSkip: false,
+    title: 'Book your car',
+    description: 'Sell houses easily with the help of Listenoryx and to make this line big I am writing more.',
+    imageUrl: 'assets/images/third_onboarding.png',
   ),
 ];
 
@@ -58,7 +50,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('onboarding_completed', true);
     if (!mounted) return;
-    context.go('/login');
+    context.go('/welcome');
   }
 
   @override
@@ -68,6 +60,27 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
+            // Top Bar
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: _completeOnboarding,
+                    child: Text(
+                      'Skip',
+                      style: GoogleFonts.outfit(
+                        color: AppColors.mediumGray,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
             Expanded(
               child: PageView.builder(
                 controller: _pageController,
@@ -80,29 +93,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 itemBuilder: (context, index) {
                   final page = onboardingPages[index];
                   return Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 24.w),
+                    padding: EdgeInsets.symmetric(horizontal: 32.w),
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(24.r),
-                          child: Image.network(
-                            page.imageUrl,
-                            height: 240.h,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) => 
-                              Container(height: 240.h, color: AppColors.lightGray, child: const Center(child: Icon(Icons.error))),
-                          ),
+                        // Illustration
+                        Image.asset(
+                          page.imageUrl,
+                          height: 280.h,
+                          fit: BoxFit.contain,
                         ),
-                        SizedBox(height: 32.h),
+                        SizedBox(height: 48.h),
+                        
+                        // Text Content
                         Text(
                           page.title,
                           style: GoogleFonts.outfit(
-                            fontSize: 24.sp,
-                            fontWeight: FontWeight.bold,
-                            color: Theme.of(context).colorScheme.primary,
-                            height: 1.2,
+                            fontSize: 28.sp,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.black,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -111,7 +120,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           page.description,
                           style: GoogleFonts.outfit(
                             fontSize: 14.sp,
-                            color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.7),
+                            color: AppColors.mediumGray,
                             height: 1.5,
                           ),
                           textAlign: TextAlign.center,
@@ -123,88 +132,79 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               ),
             ),
             
-            // Indicators
+            // Bottom Action Area
             Padding(
-              padding: EdgeInsets.symmetric(vertical: 24.h),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  onboardingPages.length,
-                  (index) => Container(
-                    margin: EdgeInsets.only(right: 6.w),
-                    height: 6.h,
-                    width: _currentPage == index ? 24.w : 8.w,
-                    decoration: BoxDecoration(
-                      color: _currentPage == index ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.secondary.withValues(alpha: 0.3),
-                      borderRadius: BorderRadius.circular(3.r),
-                    ),
-                  ),
-                ),
-              ),
+              padding: EdgeInsets.only(bottom: 60.h),
+              child: _buildProgressButton(),
             ),
-            
-            // Buttons
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 24.w).copyWith(bottom: 24.h),
-              child: Column(
-                children: [
-                  ElevatedButton(
-                    onPressed: () {
-                      if (_currentPage < onboardingPages.length - 1) {
-                        _pageController.nextPage(
-                          duration: const Duration(milliseconds: 300),
-                          curve: Curves.easeInOut,
-                        );
-                      } else {
-                        _completeOnboarding();
-                      }
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.secondary,
-                      foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                      minimumSize: Size(double.infinity, 48.h),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12.r),
-                      ),
-                      elevation: 0,
-                    ),
-                    child: Text(
-                      onboardingPages[_currentPage].buttonText,
-                      style: TextStyle(
-                        fontSize: 15.sp,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  
-                  if (_currentPage < onboardingPages.length - 1)
-                    Padding(
-                      padding: EdgeInsets.only(top: 8.h),
-                      child: TextButton(
-                        onPressed: () {
-                          _pageController.animateToPage(
-                            onboardingPages.length - 1,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeInOut,
-                          );
-                        },
-                        child: Text(
-                          'Skip',
-                          style: TextStyle(
-                            color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.5),
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    )
-                  else
-                    SizedBox(height: 48.h), // Spacer to maintain consistent layout height
-                ],
-              ),
-            )
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildProgressButton() {
+    final isLast = _currentPage == onboardingPages.length - 1;
+    final targetProgress = (_currentPage + 1) / onboardingPages.length;
+
+    return GestureDetector(
+      onTap: () {
+        if (!isLast) {
+          _pageController.nextPage(
+            duration: const Duration(milliseconds: 500),
+            curve: Curves.easeInOutQuart,
+          );
+        } else {
+          _completeOnboarding();
+        }
+      },
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Outer Animated Progress Ring
+          SizedBox(
+            width: 80.w,
+            height: 80.w,
+            child: TweenAnimationBuilder<double>(
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeInOutCubic,
+              tween: Tween<double>(begin: 0, end: targetProgress),
+              builder: (context, value, child) {
+                return CircularProgressIndicator(
+                  value: value,
+                  strokeWidth: 3.w,
+                  backgroundColor: AppColors.gold.withOpacity(0.1),
+                  valueColor: const AlwaysStoppedAnimation<Color>(AppColors.gold),
+                );
+              },
+            ),
+          ),
+          // Inner Button
+          Container(
+            width: 62.w,
+            height: 62.w,
+            decoration: const BoxDecoration(
+              color: AppColors.gold,
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: isLast 
+                ? Text(
+                    'Go',
+                    style: GoogleFonts.outfit(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16.sp,
+                    ),
+                  )
+                : Icon(
+                    Icons.arrow_forward,
+                    color: Colors.white,
+                    size: 26.sp,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -4,9 +4,11 @@ import '../models/app_config.dart';
 import '../models/home_settings.dart';
 import '../models/profile_settings.dart';
 import '../models/booking_settings.dart';
-import '../remote/api_service.dart';
 import '../repositories/auth_repository_impl.dart';
+import '../services/app_config_service.dart'; // Added
 import 'app_color_provider.dart';
+
+final appConfigServiceProvider = Provider<AppConfigService>((ref) => AppConfigService()); // New Provider
 
 final appConfigProvider = StateNotifierProvider<AppConfigNotifier, AppConfig>((ref) {
   return AppConfigNotifier(ref);
@@ -18,17 +20,22 @@ class AppConfigNotifier extends StateNotifier<AppConfig> {
 
   Future<void> fetchConfig() async {
     try {
-      final config = await _ref.read(apiServiceProvider).getAppConfig();
-      state = config;
-      await _syncToLocalProviders(config);
+      final config = await _ref.read(appConfigServiceProvider).fetchConfig();
+      if (config != null) {
+        state = config;
+        await _syncToLocalProviders(config);
+      }
     } catch (e) {
-      debugPrint('Error fetching app config: $e');
+      // Network unavailable or DNS failure — fall back to default config silently.
+      // The app will continue to work with local defaults.
+      debugPrint('Warning: Could not fetch remote app config (offline?): $e');
+      // Do NOT rethrow — this was crashing the app on startup with no network.
     }
   }
 
   Future<void> updateConfig(AppConfig config) async {
     try {
-      await _ref.read(apiServiceProvider).updateAppConfig(config);
+      await _ref.read(appConfigServiceProvider).updateConfig(config);
       // Re-fetch to ensure we have the absolute latest from the server
       await fetchConfig();
     } catch (e) {

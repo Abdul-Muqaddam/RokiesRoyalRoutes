@@ -65,8 +65,29 @@ class SavedPlacesDialog extends ConsumerWidget {
                   error: (err, _) => Text('Error: $err'),
                 ),
                 SizedBox(height: 16.h),
+                if (viewModel.error != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 8.h),
+                    child: Text(
+                      viewModel.error!,
+                      style: TextStyle(color: Colors.red, fontSize: 11.sp),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                if (viewModel.successMessage != null)
+                  Padding(
+                    padding: EdgeInsets.only(bottom: 8.h),
+                    child: Text(
+                      viewModel.successMessage!,
+                      style: TextStyle(color: Colors.green, fontSize: 11.sp),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
                 TextButton.icon(
-                  onPressed: () => _showAddPlaceDialog(context, ref),
+                  onPressed: () {
+                    viewModel.clearMessages();
+                    _showAddPlaceDialog(context, ref);
+                  },
                   icon: Icon(Icons.add, size: 20.w, color: Theme.of(context).colorScheme.secondary),
                   label: Text(
                     'Add New Place',
@@ -181,6 +202,10 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
   late TextEditingController _labelController;
   late TextEditingController _addressController;
   bool _isFetchingCurrentLocation = false;
+  String? _labelError;
+  String? _addressError;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
@@ -191,17 +216,87 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
 
   @override
   void dispose() {
+    _hideOverlay();
     _labelController.dispose();
     _addressController.dispose();
     super.dispose();
   }
 
+  void _updateOverlay(List<Prediction> suggestions, SavedLocationsViewModel viewModel) {
+    _hideOverlay();
+    if (suggestions.isNotEmpty) {
+      _showOverlay(suggestions, viewModel);
+    }
+  }
+
+  void _showOverlay(List<Prediction> suggestions, SavedLocationsViewModel viewModel) {
+    if (!mounted) return;
+    final overlay = Overlay.of(context);
+    
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: 320.w,
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, 56.h),
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12.r),
+            color: Colors.transparent,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  )
+                ],
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: suggestions.take(5).map((suggestion) => ListTile(
+                  visualDensity: VisualDensity.compact,
+                  title: Text(suggestion.structuredFormatting.mainText, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
+                  subtitle: Text(suggestion.description, style: TextStyle(fontSize: 11.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onTap: () {
+                    _addressController.text = suggestion.description;
+                    setState(() => _addressError = null);
+                    viewModel.clearSuggestions();
+                    _hideOverlay();
+                  },
+                )).toList(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // We watch the entire state to get updates on isActionLoading (manual provider)
     final viewModel = ref.watch(savedLocationsViewModelProvider.notifier);
     final isActionLoading = viewModel.isActionLoading;
-    final suggestions = viewModel.suggestions;
+    final suggestions = ref.watch(savedLocationSuggestionsProvider);
+
+    // Watch for suggestions changes to update overlay
+    ref.listen<List<Prediction>>(savedLocationSuggestionsProvider, (prev, next) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _updateOverlay(next, viewModel);
+      });
+    });
 
     return AlertDialog(
       backgroundColor: AppColors.white,
@@ -220,13 +315,15 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
               if (widget.initialPlace?.name != 'Home' && widget.initialPlace?.name != 'Work') ...[
                 TextField(
                   controller: _labelController,
+                  onChanged: (_) => setState(() => _labelError = null),
                   decoration: InputDecoration(
                     labelText: 'Label (e.g. Gym)',
+                    errorText: _labelError,
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
-                  ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
+                    ),
                   ),
                 ),
                 SizedBox(height: 12.h),
@@ -239,49 +336,49 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
                   ),
                 ),
               
-              TextField(
-                controller: _addressController,
-                onChanged: viewModel.fetchSuggestions,
-                decoration: InputDecoration(
-                  labelText: 'Address',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12.r),
-                    borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary),
+              CompositedTransformTarget(
+                link: _layerLink,
+                child: TextField(
+                  controller: _addressController,
+                  onChanged: (val) {
+                    setState(() => _addressError = null);
+                    viewModel.fetchSuggestions(val);
+                  },
+                  decoration: InputDecoration(
+                    labelText: 'Address',
+                    errorText: _addressError,
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12.r),
+                      borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                    ),
                   ),
                 ),
               ),
               
-              if (suggestions.isNotEmpty)
-                Container(
-                  margin: EdgeInsets.only(top: 4.h),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(12.r),
-                    boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 4.r)],
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextButton.icon(
+                    onPressed: _isFetchingCurrentLocation ? null : _useCurrentLocation,
+                    icon: _isFetchingCurrentLocation 
+                        ? SizedBox(width: 14.w, height: 14.h, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.secondary))
+                        : Icon(Icons.my_location, size: 14.w, color: Theme.of(context).colorScheme.secondary),
+                    label: Text(
+                      'Use current location',
+                      style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 11.sp, fontWeight: FontWeight.w500),
+                    ),
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
                   ),
-                  child: Column(
-                    children: suggestions.take(5).map((suggestion) => ListTile(
-                      title: Text(suggestion.structuredFormatting.mainText, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
-                      subtitle: Text(suggestion.description, style: TextStyle(fontSize: 11.sp)),
-                      onTap: () {
-                        _addressController.text = suggestion.description;
-                        viewModel.clearSuggestions();
-                      },
-                    )).toList(),
-                  ),
-                ),
-
-              TextButton.icon(
-                onPressed: _isFetchingCurrentLocation ? null : _useCurrentLocation,
-                icon: _isFetchingCurrentLocation 
-                    ? SizedBox(width: 14.w, height: 14.h, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.secondary))
-                    : Icon(Icons.my_location, size: 14.w, color: Theme.of(context).colorScheme.secondary),
-                label: Text(
-                  'Use current location',
-                  style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 11.sp, fontWeight: FontWeight.w500),
-                ),
-                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+                  if (viewModel.error != null)
+                    Padding(
+                      padding: EdgeInsets.only(top: 8.h),
+                      child: Text(
+                        viewModel.error!,
+                        style: TextStyle(color: Colors.red, fontSize: 11.sp),
+                      ),
+                    ),
+                ],
               ),
             ],
           ),
@@ -312,25 +409,38 @@ class _AddPlaceDialogState extends ConsumerState<AddPlaceDialog> {
     final address = await ref.read(savedLocationsViewModelProvider.notifier).getCurrentAddress();
     if (address != null) {
       _addressController.text = address;
+      setState(() => _addressError = null);
     }
     setState(() => _isFetchingCurrentLocation = false);
   }
 
   void _save() {
-    final label = _labelController.text;
-    final address = _addressController.text;
-    if (address.isEmpty) return;
+    final label = _labelController.text.trim();
+    final address = _addressController.text.trim();
+    
+    bool hasError = false;
+    if (address.isEmpty) {
+      setState(() => _addressError = 'Address is required');
+      hasError = true;
+    }
+    
+    final isFixed = widget.initialPlace?.name == 'Home' || widget.initialPlace?.name == 'Work';
+    if (!isFixed && label.isEmpty) {
+      setState(() => _labelError = 'Label is required');
+      hasError = true;
+    }
+
+    if (hasError) return;
 
     final name = widget.initialPlace?.name ?? label;
-    if (name.isEmpty) return;
 
     if (name.toLowerCase() == 'home' || name.toLowerCase() == 'work') {
-      ref.read(savedLocationsViewModelProvider.notifier).saveLocation(name, address).then((_) {
-        if (mounted) Navigator.pop(context);
+      ref.read(savedLocationsViewModelProvider.notifier).saveLocation(name, address).then((success) {
+        if (success && mounted) Navigator.pop(context);
       });
     } else {
-      ref.read(savedLocationsViewModelProvider.notifier).saveCustomLocation(name, address).then((_) {
-        if (mounted) Navigator.pop(context);
+      ref.read(savedLocationsViewModelProvider.notifier).saveCustomLocation(name, address).then((success) {
+        if (success && mounted) Navigator.pop(context);
       });
     }
   }

@@ -10,17 +10,14 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
 
   @override
   Future<List<LocationItem>> build() async {
-    return _fetchLocations();
+    // Watch the stream provider to make this notifier reactive to DB changes
+    return ref.watch(savedLocationsStreamProvider.future);
   }
 
   Future<List<LocationItem>> _fetchLocations() async {
     final repository = ref.read(userRepositoryProvider);
     return await repository.getSavedLocations();
   }
-
-  // State for suggestions
-  List<Prediction> _suggestions = [];
-  List<Prediction> get suggestions => _suggestions;
 
   // Loading state for suggestions/actions
   bool _isActionLoading = false;
@@ -34,8 +31,7 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
 
   Future<void> fetchSuggestions(String input) async {
     if (input.isEmpty) {
-      _suggestions = [];
-      state = AsyncValue.data(state.value ?? []);
+      ref.read(savedLocationSuggestionsProvider.notifier).state = [];
       return;
     }
 
@@ -44,8 +40,7 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
       try {
         final repository = ref.read(userRepositoryProvider);
         final response = await repository.getAutocompleteSuggestions(input, _googleMapsApiKey);
-        _suggestions = response.predictions;
-        state = AsyncValue.data(state.value ?? []);
+        ref.read(savedLocationSuggestionsProvider.notifier).state = response.predictions;
       } catch (e) {
         // Silently fail suggestions
       }
@@ -53,15 +48,14 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
   }
 
   void clearSuggestions() {
-    _suggestions = [];
-    state = AsyncValue.data(state.value ?? []);
+    ref.read(savedLocationSuggestionsProvider.notifier).state = [];
   }
 
-  Future<void> saveLocation(String type, String address) async {
+  Future<bool> saveLocation(String type, String address) async {
     if (address.isEmpty) {
       _error = 'Address cannot be empty';
       state = AsyncValue.data(state.value ?? []);
-      return;
+      return false;
     }
 
     _isActionLoading = true;
@@ -77,25 +71,26 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
       final response = await repository.updateSavedLocations(request);
       if (response.success) {
         _successMessage = 'Location updated successfully';
-        state = AsyncValue.data(await _fetchLocations());
+        return true; // Indicate success
       } else {
         _error = response.message;
-        state = AsyncValue.data(state.value ?? []);
+        return false;
       }
     } catch (e) {
       _error = e.toString();
       state = AsyncValue.data(state.value ?? []);
+      return false;
     } finally {
       _isActionLoading = false;
-      state = AsyncValue.data(state.value ?? []);
+      // We don't notify here to keep the error state visible
     }
   }
 
-  Future<void> saveCustomLocation(String label, String address) async {
+  Future<bool> saveCustomLocation(String label, String address) async {
     if (label.isEmpty || address.isEmpty) {
       _error = 'Label and address cannot be empty';
       state = AsyncValue.data(state.value ?? []);
-      return;
+      return false;
     }
 
     _isActionLoading = true;
@@ -118,17 +113,17 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
       
       if (response.success) {
         _successMessage = "'$label' saved!";
-        state = AsyncValue.data(await _fetchLocations());
+        return true;
       } else {
         _error = response.message;
-        state = AsyncValue.data(state.value ?? []);
+        return false;
       }
     } catch (e) {
       _error = e.toString();
       state = AsyncValue.data(state.value ?? []);
+      return false;
     } finally {
       _isActionLoading = false;
-      state = AsyncValue.data(state.value ?? []);
     }
   }
 
@@ -151,17 +146,14 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
       
       if (response.success) {
         _successMessage = 'Place removed: ${item.name}';
-        state = AsyncValue.data(await _fetchLocations());
       } else {
         _error = 'Failed to remove place';
-        state = AsyncValue.data(state.value ?? []);
       }
     } catch (e) {
       _error = e.toString();
       state = AsyncValue.data(state.value ?? []);
     } finally {
       _isActionLoading = false;
-      state = AsyncValue.data(state.value ?? []);
     }
   }
 
@@ -176,6 +168,33 @@ class SavedLocationsViewModel extends AsyncNotifier<List<LocationItem>> {
     state = AsyncValue.data(state.value ?? []);
   }
 }
+
+final savedLocationSuggestionsProvider = StateProvider<List<Prediction>>((ref) => []);
+
+final savedLocationsStreamProvider = StreamProvider<List<LocationItem>>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  
+  // Create the stream
+  final stream = repository.watchSavedLocations();
+  
+  // Add a side-effect for debugging and safety
+  ref.listenSelf((previous, next) {
+    next.when(
+      data: (data) => print('DEBUG [savedLocationsStreamProvider]: Received ${data.length} locations'),
+      error: (err, stack) {
+        print('DEBUG [savedLocationsStreamProvider]: Error: $err');
+        if (err.toString().contains('timedOut')) {
+           print('DEBUG [Sync-Instruction]: ⚠️ Realtime Timeout detected.');
+           print('DEBUG [Sync-Instruction]: ACTION REQUIRED: You must enable "Replication" for the "saved_locations" table in your Supabase Dashboard.');
+           print('DEBUG [Sync-Instruction]: Path: Database -> Replication -> Source -> Toggle on "saved_locations".');
+        }
+      },
+      loading: () => print('DEBUG [savedLocationsStreamProvider]: Loading...'),
+    );
+  });
+  
+  return stream;
+});
 
 final savedLocationsViewModelProvider = AsyncNotifierProvider<SavedLocationsViewModel, List<LocationItem>>(() {
   return SavedLocationsViewModel();

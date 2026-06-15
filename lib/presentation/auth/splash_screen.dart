@@ -1,10 +1,16 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/repositories/user_repository_impl.dart';
+import '../../data/models/user_models.dart';
 import '../../data/providers/app_config_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../widgets/app_dialog.dart';
+import 'package:google_fonts/google_fonts.dart';
+import '../../data/providers/app_color_provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
@@ -17,125 +23,211 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
-  late final AnimationController _scaleController;
-  late final Animation<double> _scaleAnimation;
+  late final AnimationController _mainController;
+  late final Animation<double> _logoOpacity;
+  late final Animation<double> _logoScale;
+  late final Animation<double> _textSpacing;
+  late final Animation<double> _glowIntensity;
 
   @override
   void initState() {
     super.initState();
-    _scaleController = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 1000));
-    _scaleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: _scaleController, curve: Curves.fastOutSlowIn));
+    _mainController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
 
-    _scaleController.forward();
+    _logoOpacity = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _mainController, curve: const Interval(0.0, 0.4, curve: Curves.easeIn)),
+    );
+
+    _logoScale = Tween<double>(begin: 0.8, end: 1.0).animate(
+      CurvedAnimation(parent: _mainController, curve: const Interval(0.0, 0.5, curve: Curves.easeOutCubic)),
+    );
+
+    _textSpacing = Tween<double>(begin: 2.0, end: 10.0).animate(
+      CurvedAnimation(parent: _mainController, curve: const Interval(0.3, 0.8, curve: Curves.easeOutQuart)),
+    );
+
+    _glowIntensity = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.0), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.0, end: 0.5), weight: 50),
+    ]).animate(
+      CurvedAnimation(parent: _mainController, curve: const Interval(0.0, 1.0, curve: Curves.easeInOutSine)),
+    );
+
+    _mainController.forward();
     _checkAuth();
   }
 
   Future<void> _checkAuth() async {
-    // Initiate global config fetch
-    final configFetch = ref.read(appConfigProvider.notifier).fetchConfig();
+    try {
+      final configFetch = ref.read(appConfigProvider.notifier).fetchConfig();
+      await Future.delayed(const Duration(seconds: 3)); 
+      await configFetch;
+    } catch (e) {
+      if (mounted) {
+        AppDialog.show(
+          context: context,
+          type: DialogType.error,
+          title: 'Connection Error',
+          message: 'Failed to synchronize with Rockies Royal servers.',
+          primaryButtonText: 'Retry',
+          onPrimaryPressed: () {
+             Navigator.pop(context);
+             _checkAuth();
+          },
+        );
+      }
+      return;
+    }
 
-    await Future.delayed(const Duration(seconds: 3)); // Same 3 sec delay as Kotlin
-    
-    // Ensure config is loaded before proceeding to UI
-    await configFetch;
-
-    if (!context.mounted) return;
+    if (!mounted) return;
 
     try {
       final prefs = await SharedPreferences.getInstance();
       final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
-
-      if (!context.mounted) return;
 
       if (!onboardingCompleted) {
         context.go('/onboarding');
         return;
       }
     } catch (e) {
-      debugPrint('SharedPreferences error ignored: $e');
+      debugPrint('Auth error: $e');
     }
 
     if (!mounted) return;
     final authRepo = ref.read(authRepositoryProvider);
     if (authRepo.isLoggedIn()) {
-      if (mounted) context.go('/home');
+      final userRepo = ref.read(userRepositoryProvider);
+      final profile = await userRepo.getUserProfile();
+      if (profile.success && profile.user?.role == 'driver') {
+        context.go('/driver-home');
+      } else {
+        context.go('/home');
+      }
     } else {
-      if (mounted) context.go('/login');
+      context.go('/welcome');
     }
   }
 
   @override
   void dispose() {
-    _scaleController.dispose();
+    _mainController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    // Dynamic Colors from Supabase
+    final dynamicBgColor = ref.watch(appPrimaryColorProvider);
+    final dynamicAccentColor = ref.watch(appColorProvider);
+    final dynamicTextColor = ref.watch(appTextColorProvider);
+
     return Scaffold(
-      backgroundColor: AppColors.white, // assuming background color based off Material Theme
+      backgroundColor: dynamicAccentColor,
       body: Stack(
+        fit: StackFit.expand,
         children: [
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: Container(
-                    width: 72.w,
-                    height: 72.w,
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.secondary,
-                      borderRadius: BorderRadius.circular(12.r),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black26,
-                          blurRadius: 6.r,
-                          offset: Offset(0, 3.h),
-                        )
+          // Subtle Ambient Glow (using accent color)
+          AnimatedBuilder(
+            animation: _glowIntensity,
+            builder: (context, child) {
+              return Positioned(
+                top: MediaQuery.of(context).size.height * 0.3,
+                left: MediaQuery.of(context).size.width * 0.5 - 150.w,
+                child: Container(
+                  width: 300.w,
+                  height: 300.w,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: RadialGradient(
+                      colors: [
+                        Colors.white.withOpacity(0.1 * _glowIntensity.value),
+                        Colors.transparent,
                       ],
                     ),
-                    alignment: Alignment.center,
-                    child: SizedBox(
-                      width: 36.w,
-                      height: 36.w,
-                      child: SvgPicture.asset(
-                        'assets/icons/ic_crown.svg',
-                        colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.primary, BlendMode.srcIn),
-                      ),
+                  ),
+                ),
+              );
+            },
+          ),
+
+          Center(
+            child: AnimatedBuilder(
+              animation: _mainController,
+              builder: (context, child) {
+                return Opacity(
+                  opacity: _logoOpacity.value,
+                  child: Transform.scale(
+                    scale: _logoScale.value,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // The Brand Icon
+                        Container(
+                          width: 90.w,
+                          height: 90.w,
+                          decoration: BoxDecoration(
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.1),
+                                blurRadius: 24,
+                                offset: const Offset(0, 12),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20.r),
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.contain,
+                            ),
+                          ),
+                        ),
+                        
+                        SizedBox(height: 24.h),
+                        
+                        // Rockies Royal Branding
+                        Column(
+                          children: [
+                            Text(
+                              'ROCKIES',
+                              style: GoogleFonts.outfit(
+                                fontSize: 22.sp,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.white,
+                                letterSpacing: -0.5,
+                                height: 0.9,
+                              ),
+                            ),
+                            Text(
+                              'ROYAL',
+                              style: GoogleFonts.outfit(
+                                fontSize: 22.sp,
+                                fontWeight: FontWeight.w200,
+                                color: dynamicAccentColor,
+                                letterSpacing: 5,
+                                height: 1.2,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                SizedBox(height: 16.h),
-                Text(
-                  'ROCKIES',
-                  style: TextStyle(
-                    fontSize: 24.sp,
-                    fontWeight: FontWeight.bold,
-                    color: Theme.of(context).textTheme.displaySmall?.color,
-                    letterSpacing: 2.w,
-                  ),
-                ),
-                Text(
-                  'ROYAL ROUTES',
-                  style: TextStyle(
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                    color: Theme.of(context).colorScheme.secondary,
-                    letterSpacing: 4.w,
-                  ),
-                ),
-              ],
+                );
+              },
             ),
           ),
-          Align(
-            alignment: Alignment.bottomCenter,
-            child: Padding(
-              padding: EdgeInsets.only(bottom: 60.h),
-              child: PulsingDots(color: Theme.of(context).colorScheme.secondary),
+
+          // Minimalist Progress Thread (Dynamic Accent)
+          Positioned(
+            bottom: 100.h,
+            left: 0,
+            right: 0,
+            child: Center(
+              child: _AnimateProgressThread(color: dynamicAccentColor),
             ),
           ),
         ],
@@ -144,24 +236,30 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   }
 }
 
-class PulsingDots extends StatefulWidget {
+class _AnimateProgressThread extends StatefulWidget {
   final Color color;
-  const PulsingDots({super.key, required this.color});
+  const _AnimateProgressThread({required this.color});
 
   @override
-  State<PulsingDots> createState() => _PulsingDotsState();
+  State<_AnimateProgressThread> createState() => _AnimateProgressThreadState();
 }
 
-class _PulsingDotsState extends State<PulsingDots>
+class _AnimateProgressThreadState extends State<_AnimateProgressThread>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
+  late final Animation<double> _widthAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 600))
-      ..repeat(reverse: true);
+      vsync: this,
+      duration: const Duration(seconds: 3),
+    );
+    _widthAnimation = Tween<double>(begin: 0.0, end: 120.w).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOutCubic),
+    );
+    _controller.forward();
   }
 
   @override
@@ -172,36 +270,23 @@ class _PulsingDotsState extends State<PulsingDots>
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(3, (index) {
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: 4.w),
-          child: AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              // calculating an offset phase delay
-              double phase = (index * 0.25);
-              double rawVal = _controller.value - phase;
-              if (rawVal < 0) rawVal += 1.0;
-              // smooth it
-              double scale = 0.4 + (0.6 * rawVal);
-
-              return Transform.scale(
-                scale: scale,
-                child: Container(
-                  width: 8.w,
-                  height: 8.w,
-                  decoration: BoxDecoration(
-                    color: widget.color,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-              );
-            },
+    return AnimatedBuilder(
+      animation: _widthAnimation,
+      builder: (context, child) {
+        return Container(
+          width: _widthAnimation.value,
+          height: 1.h,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                widget.color.withOpacity(0.0),
+                widget.color,
+                widget.color.withOpacity(0.0),
+              ],
+            ),
           ),
         );
-      }),
+      },
     );
   }
 }

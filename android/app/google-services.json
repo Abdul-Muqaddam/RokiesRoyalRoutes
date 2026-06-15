@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "649404532252",
+    "project_id": "rockies-royal-independent",
+    "storage_bucket": "rockies-royal-independent.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:649404532252:android:fe62537ae0012188a681d9",
+        "android_client_info": {
+          "package_name": "com.rockiesroyal.routes"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBmUVz2fXm2qrrktLltJ3CmSducH0jX1NM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

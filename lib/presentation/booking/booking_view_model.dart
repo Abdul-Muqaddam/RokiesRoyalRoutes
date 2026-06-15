@@ -1,16 +1,25 @@
 import 'dart:async';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import '../../data/remote/api_service.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/models/booking_models.dart';
 import '../../data/models/vehicle_models.dart';
 import '../../data/models/user_models.dart';
-import '../../domain/repositories/booking_repository.dart';
+import '../../domain/repositories/booking_repository.dart' hide savedLocationsStreamProvider;
 import '../../data/repositories/vehicle_repository.dart';
 import '../../data/services/location_service.dart';
+import '../../data/repositories/user_repository_impl.dart';
 import '../../data/local/preferences_manager.dart';
+import '../profile/saved_locations_view_model.dart';
+import '../../data/services/stripe_service.dart';
+import '../../data/services/paypal_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show Supabase;
+import '../wallet/wallet_view_model.dart';
+import '../../data/repositories/notification_repository.dart';
+import '../../core/services/push_notification_service.dart';
 
 class BookingState {
   final int currentStep;
@@ -166,6 +175,27 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   @override
   Future<BookingState> build() async {
     _loadInitialData();
+    
+    // Watch the saved locations stream to keep the booking state updated in real-time
+    ref.listen<AsyncValue<List<LocationItem>>>(savedLocationsStreamProvider, (prev, next) {
+      next.whenData((locations) {
+        if (state.hasValue) {
+          final s = state.value ?? BookingState();
+          state = AsyncValue.data(s.copyWith(savedPlaces: locations));
+        }
+      });
+    });
+
+    // Watch for vehicle updates
+    ref.listen<AsyncValue<List<Vehicle>>>(allVehiclesProvider, (prev, next) {
+      next.whenData((vehicles) {
+        if (state.hasValue) {
+          final s = state.value ?? BookingState();
+          state = AsyncValue.data(s.copyWith(availableVehicles: vehicles));
+        }
+      });
+    });
+
     return BookingState();
   }
 
@@ -204,7 +234,8 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void updatePickupLocation(String value) {
-    state = AsyncValue.data(state.value!.copyWith(
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(
       pickupLocation: value, 
       error: null,
       distance: null, 
@@ -215,7 +246,8 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void updateDestination(String value) {
-    state = AsyncValue.data(state.value!.copyWith(
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(
       destination: value, 
       error: null,
       distance: null, 
@@ -229,9 +261,11 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
     _debounceTimer?.cancel();
     if (input.length < 3) {
       if (isPickup) {
-        state = AsyncValue.data(state.value!.copyWith(pickupSuggestions: []));
+        final s = state.value ?? BookingState();
+        state = AsyncValue.data(s.copyWith(pickupSuggestions: []));
       } else {
-        state = AsyncValue.data(state.value!.copyWith(destinationSuggestions: []));
+        final s = state.value ?? BookingState();
+        state = AsyncValue.data(s.copyWith(destinationSuggestions: []));
       }
       return;
     }
@@ -239,11 +273,13 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
     _debounceTimer = Timer(const Duration(milliseconds: 500), () async {
       try {
         const apiKey = "AIzaSyDwTHDeGqgifYZGbYRtMakvOZKnIlpftX8";
-        final response = await ref.read(apiServiceProvider).getAutocompleteSuggestions(input, apiKey);
+        final response = await ref.read(userRepositoryProvider).getAutocompleteSuggestions(input, apiKey);
         if (isPickup) {
-          state = AsyncValue.data(state.value!.copyWith(pickupSuggestions: response.predictions));
+          final s = state.value ?? BookingState();
+          state = AsyncValue.data(s.copyWith(pickupSuggestions: response.predictions));
         } else {
-          state = AsyncValue.data(state.value!.copyWith(destinationSuggestions: response.predictions));
+          final s = state.value ?? BookingState();
+          state = AsyncValue.data(s.copyWith(destinationSuggestions: response.predictions));
         }
       } catch (e) {
         // Handle error
@@ -252,8 +288,9 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void selectSuggestion(Prediction prediction, bool isPickup) {
+    final s = state.value ?? BookingState();
     if (isPickup) {
-      state = AsyncValue.data(state.value!.copyWith(
+      state = AsyncValue.data(s.copyWith(
         pickupLocation: prediction.description,
         pickupSuggestions: [],
         distance: null,
@@ -261,7 +298,7 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         isFlightMode: false,
       ));
     } else {
-      state = AsyncValue.data(state.value!.copyWith(
+      state = AsyncValue.data(s.copyWith(
         destination: prediction.description,
         destinationSuggestions: [],
         distance: null,
@@ -272,28 +309,49 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   Future<void> calculateDistance() async {
-    final s = state.value!;
+    final s = state.value ?? BookingState();
     if (s.pickupLocation.isEmpty || s.destination.isEmpty) return;
 
     state = AsyncValue.data(s.copyWith(isLoading: true, error: null));
 
     try {
+      final pickupCoordsList = parseLatLngFromString(s.pickupLocation);
+      final destCoordsList = parseLatLngFromString(s.destination);
+
+      double? pLat, pLng, dLat, dLng;
+      if (pickupCoordsList != null) {
+        pLat = pickupCoordsList[0];
+        pLng = pickupCoordsList[1];
+      } else {
+        try {
+          final locs = await locationFromAddress(cleanLocationName(s.pickupLocation));
+          if (locs.isNotEmpty) {
+            pLat = locs.first.latitude;
+            pLng = locs.first.longitude;
+          }
+        } catch (_) {}
+      }
+
+      if (destCoordsList != null) {
+        dLat = destCoordsList[0];
+        dLng = destCoordsList[1];
+      } else {
+        try {
+          final locs = await locationFromAddress(cleanLocationName(s.destination));
+          if (locs.isNotEmpty) {
+            dLat = locs.first.latitude;
+            dLng = locs.first.longitude;
+          }
+        } catch (_) {}
+      }
+
       if (s.isFlightMode == true) {
-        // Air distance calculation fallback
-        final pickupCoords = await locationFromAddress(s.pickupLocation);
-        final destCoords = await locationFromAddress(s.destination);
-
-        if (pickupCoords.isNotEmpty && destCoords.isNotEmpty) {
-          final distanceInMeters = Geolocator.distanceBetween(
-            pickupCoords[0].latitude,
-            pickupCoords[0].longitude,
-            destCoords[0].latitude,
-            destCoords[0].longitude,
-          );
-
+        if (pLat != null && pLng != null && dLat != null && dLng != null) {
+          final distanceInMeters = Geolocator.distanceBetween(pLat, pLng, dLat, dLng);
           final distanceInKm = distanceInMeters / 1000;
           
-          state = AsyncValue.data(state.value!.copyWith(
+          final s2 = state.value ?? BookingState();
+          state = AsyncValue.data(s2.copyWith(
             distance: '${distanceInKm.toStringAsFixed(1)} km (Air)',
             duration: 'N/A',
             isLoading: false,
@@ -303,25 +361,31 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         }
       }
 
-      final response = await ref.read(bookingRepositoryProvider).getDistanceMatrix(s.pickupLocation, s.destination);
+      final String originStr = (pLat != null && pLng != null) ? "$pLat,$pLng" : cleanLocationName(s.pickupLocation);
+      final String destStr = (dLat != null && dLng != null) ? "$dLat,$dLng" : cleanLocationName(s.destination);
+
+      final response = await ref.read(bookingRepositoryProvider).getDistanceMatrix(originStr, destStr);
       if (response.status == 'OK' && response.rows.isNotEmpty) {
         final element = response.rows[0].elements[0];
         if (element.status == 'OK') {
-          state = AsyncValue.data(state.value!.copyWith(
+          final s = state.value ?? BookingState();
+          state = AsyncValue.data(s.copyWith(
             distance: element.distance?.text,
             duration: element.duration?.text,
             isLoading: false,
             error: null,
           ));
         } else if (element.status == 'ZERO_RESULTS') {
-          state = AsyncValue.data(state.value!.copyWith(
+          final s = state.value ?? BookingState();
+          state = AsyncValue.data(s.copyWith(
             distance: null,
             duration: null,
             isLoading: false,
             error: 'No driving route found. Would you like to use Flight Mode?',
           ));
         } else {
-          state = AsyncValue.data(state.value!.copyWith(
+          final s = state.value ?? BookingState();
+          state = AsyncValue.data(s.copyWith(
             distance: null,
             duration: null,
             isLoading: false,
@@ -329,7 +393,8 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
           ));
         }
       } else {
-        state = AsyncValue.data(state.value!.copyWith(
+        final s = state.value ?? BookingState();
+        state = AsyncValue.data(s.copyWith(
           distance: null,
           duration: null,
           isLoading: false,
@@ -337,7 +402,8 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         ));
       }
     } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(
+      final s = state.value ?? BookingState();
+      state = AsyncValue.data(s.copyWith(
         distance: null,
         duration: null,
         isLoading: false,
@@ -347,31 +413,45 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void setPickupTimeType(String type) {
-    state = AsyncValue.data(state.value!.copyWith(pickupTimeType: type));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(pickupTimeType: type));
   }
 
-  void selectDate(DateTime date) {
-    state = AsyncValue.data(state.value!.copyWith(selectedDate: date));
+  void updateDate(DateTime date) {
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(
+      selectedDate: date,
+      bookingStatus: null, // Clear previous success status
+    ));
   }
 
-  void selectTime(String time) {
-    state = AsyncValue.data(state.value!.copyWith(selectedTime: time));
+  void updateTime(String time) {
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(
+      selectedTime: time,
+      bookingStatus: null, // Clear previous success status
+    ));
   }
 
   void selectVehicle(Vehicle vehicle) {
-    state = AsyncValue.data(state.value!.copyWith(
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(
       selectedVehicle: vehicle,
       passengers: 1, // Reset or cap existing
       luggage: 0,
+      bookingStatus: null, // Clear previous success status
+      requiresPayment: false,
+      checkoutUrl: null,
     ));
   }
 
   void setVehicleCategory(String category) {
-    state = AsyncValue.data(state.value!.copyWith(vehicleCategory: category));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(vehicleCategory: category));
   }
 
   void updatePassengers(int count) {
-    final s = state.value!;
+    final s = state.value ?? BookingState();
     final max = s.selectedVehicle?.passengers ?? 4;
     if (count >= 1 && count <= max) {
       state = AsyncValue.data(s.copyWith(passengers: count));
@@ -379,7 +459,7 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void updateLuggage(int count) {
-    final s = state.value!;
+    final s = state.value ?? BookingState();
     final max = s.selectedVehicle?.luggage ?? 3;
     if (count >= 0 && count <= max) {
       state = AsyncValue.data(s.copyWith(luggage: count));
@@ -387,44 +467,77 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void updateStep(int step) {
-    state = AsyncValue.data(state.value!.copyWith(currentStep: step));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(currentStep: step));
   }
 
-  void nextStep(int totalSteps) {
-    final current = state.value!.currentStep;
+  Future<void> nextStep(int totalSteps) async {
+    final currentState = state.value ?? BookingState();
+    final current = currentState.currentStep;
+
     if (current < totalSteps - 1) {
       updateStep(current + 1);
     }
   }
 
   void prevStep() {
-    final current = state.value!.currentStep;
+    final s = state.value ?? BookingState();
+    final current = s.currentStep;
     if (current > 0) {
       updateStep(current - 1);
     }
   }
 
   Future<void> saveLocation(String label) async {
-    final s = state.value!;
+    final s = state.value ?? BookingState();
     if (s.pickupLocation.isEmpty) return;
     
     state = AsyncValue.data(s.copyWith(isLoading: true, saveStatus: null));
     try {
-      await ref.read(bookingRepositoryProvider).addRecentDestination(s.pickupLocation);
-      state = AsyncValue.data(state.value!.copyWith(
-        isLoading: false,
-        saveStatus: 'Location saved as $label',
-      ));
+      final userRepo = ref.read(userRepositoryProvider);
+      final type = label.toLowerCase();
+      
+      UpdateLocationsRequest request;
+      if (type == 'home') {
+        request = UpdateLocationsRequest(home: s.pickupLocation);
+      } else if (type == 'work') {
+        request = UpdateLocationsRequest(work: s.pickupLocation);
+      } else {
+        // For custom places, we need to fetch existing and add
+        final currentLocations = await userRepo.getSavedLocations();
+        final customPlaces = currentLocations
+            .where((l) => l.name != 'Home' && l.name != 'Work' && l.name.toLowerCase() != type)
+            .map((l) => CustomPlace(name: l.name, address: l.address))
+            .toList();
+        
+        customPlaces.add(CustomPlace(name: label, address: s.pickupLocation));
+        request = UpdateLocationsRequest(custom: customPlaces);
+      }
+
+      final response = await userRepo.updateSavedLocations(request);
+      
+      if (response.success) {
+        final s = state.value ?? BookingState();
+        state = AsyncValue.data(s.copyWith(
+          isLoading: false,
+          saveStatus: 'Location saved as $label',
+        ));
+      } else {
+        throw Exception(response.message);
+      }
     } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(isLoading: false, error: e.toString()));
+      final s = state.value ?? BookingState();
+      state = AsyncValue.data(s.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
   Future<void> fetchCurrentLocation() async {
-    state = AsyncValue.data(state.value!.copyWith(isLoading: true));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(isLoading: true));
     try {
       final address = await ref.read(currentLocationProvider.future);
-      state = AsyncValue.data(state.value!.copyWith(
+      final s = state.value ?? BookingState();
+      state = AsyncValue.data(s.copyWith(
         pickupLocation: address,
         isLoading: false,
         distance: null,
@@ -432,13 +545,15 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         isFlightMode: false,
       ));
     } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(isLoading: false, error: e.toString()));
+      final s_safe = state.value ?? BookingState();
+          state = AsyncValue.data(s_safe.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
   void selectLocation(LocationItem item, bool isPickup) {
+    final s = state.value ?? BookingState();
     if (isPickup) {
-      state = AsyncValue.data(state.value!.copyWith(
+      state = AsyncValue.data(s.copyWith(
         pickupLocation: item.address, 
         pickupSuggestions: [],
         distance: null,
@@ -446,7 +561,7 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         isFlightMode: false,
       ));
     } else {
-      state = AsyncValue.data(state.value!.copyWith(
+      state = AsyncValue.data(s.copyWith(
         destination: item.address, 
         destinationSuggestions: [],
         distance: null,
@@ -457,7 +572,8 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void clearStatus() {
-    state = AsyncValue.data(state.value!.copyWith(saveStatus: null, error: null));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(saveStatus: null, error: null));
   }
 
   void updateCustomerInfo({
@@ -468,7 +584,8 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
     String? note,
     String? paymentMethod,
   }) {
-    state = AsyncValue.data(state.value!.copyWith(
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(
       firstName: firstName,
       lastName: lastName,
       email: email,
@@ -479,13 +596,15 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void toggleShowAllRecent() {
-    state = AsyncValue.data(state.value!.copyWith(showAllRecent: !state.value!.showAllRecent));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(showAllRecent: !s.showAllRecent));
   }
 
   void setFlightMode(bool enabled) {
-    state = AsyncValue.data(state.value!.copyWith(
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(
       isFlightMode: enabled,
-      error: enabled ? null : state.value!.error,
+      error: enabled ? null : s.error,
     ));
 
     if (enabled) {
@@ -494,21 +613,57 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
   }
 
   void toggleShowAllSavedPlaces() {
-    state = AsyncValue.data(state.value!.copyWith(showAllSavedPlaces: !state.value!.showAllSavedPlaces));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(showAllSavedPlaces: !s.showAllSavedPlaces));
   }
 
-  Future<void> createBooking() async {
-    final s = state.value!;
+  Future<void> createBooking({BuildContext? context}) async {
+    final s = state.value ?? BookingState();
     if (s.selectedVehicle == null) return;
-
-    state = AsyncValue.data(state.value!.copyWith(isLoading: true, error: null));
+    
+    state = AsyncValue.data(s.copyWith(isLoading: true, error: null));
     try {
+      // Resolve "Current location" to a real geocodable address if needed
+      String pickup = s.pickupLocation;
+      if (pickup == 'Current location' || pickup.isEmpty) {
+        final resolved = await ref.read(locationServiceProvider).getCurrentLocationName();
+        if (resolved != null && resolved.isNotEmpty && resolved != 'Permission denied') {
+          pickup = resolved;
+        }
+        try {
+          final pos = await Geolocator.getCurrentPosition(
+            locationSettings: const LocationSettings(accuracy: LocationAccuracy.high),
+          );
+          pickup = '$pickup (${pos.latitude}, ${pos.longitude})';
+        } catch (_) {}
+      } else {
+        if (!pickup.contains(RegExp(r'\(([^,]+),\s*([^)]+)\)'))) {
+          try {
+            final locs = await locationFromAddress(cleanLocationName(pickup));
+            if (locs.isNotEmpty) {
+              pickup = '${cleanLocationName(pickup)} (${locs.first.latitude}, ${locs.first.longitude})';
+            }
+          } catch (_) {}
+        }
+      }
+
+      String destination = s.destination;
+      if (destination.isNotEmpty && !destination.contains(RegExp(r'\(([^,]+),\s*([^)]+)\)'))) {
+        try {
+          final locs = await locationFromAddress(cleanLocationName(destination));
+          if (locs.isNotEmpty) {
+            destination = '${cleanLocationName(destination)} (${locs.first.latitude}, ${locs.first.longitude})';
+          }
+        } catch (_) {}
+      }
+
+      // ── Step 1: Build booking request ─────────────────────────────────────
       final request = BookingRequest(
-        vehicleId: int.parse(s.selectedVehicle!.id),
-        pickupLocation: s.pickupLocation,
-        dropoffLocation: s.destination,
-        pickupDate: s.pickupTimeType == 'NOW' 
-            ? DateTime.now().toString().split(' ')[0] 
+        vehicleId: s.selectedVehicle!.id,
+        pickupLocation: pickup,
+        dropoffLocation: destination,
+        pickupDate: s.pickupTimeType == 'NOW'
+            ? DateTime.now().toString().split(' ')[0]
             : s.selectedDate.toString().split(' ')[0],
         pickupTime: s.pickupTimeType == 'NOW' ? 'Now' : s.selectedTime,
         passengers: s.passengers,
@@ -523,91 +678,280 @@ class BookingViewModel extends AsyncNotifier<BookingState> {
         ),
         totalPrice: s.selectedVehicle?.price,
         currency: s.selectedVehicle?.currency,
-        timezone: 'UTC', // Default or fetch
+        timezone: 'UTC',
       );
 
+      // ── Step 2: Create booking in Supabase (status: pending) ───────────────
       final response = await ref.read(bookingRepositoryProvider).createBooking(request);
-      
-      if (response.success && response.requiresPayment == true) {
-        final bookingId = response.bookingId!;
-        final paymentMethod = s.paymentMethod.toLowerCase();
-        
-        if (paymentMethod.contains('stripe')) {
-          final stripeSession = await ref.read(bookingRepositoryProvider).createStripeSession(bookingId);
-          state = AsyncValue.data(state.value!.copyWith(
+
+      if (!response.success) {
+        final s2 = state.value ?? BookingState();
+        state = AsyncValue.data(s2.copyWith(
+          isLoading: false,
+          error: response.message,
+        ));
+        return;
+      }
+
+      final bookingId = response.bookingId!;
+      final s3 = state.value ?? BookingState();
+      final paymentMethod = s3.paymentMethod.toLowerCase();
+
+      // ── Step 3: Handle payment ─────────────────────────────────────────────
+      if (paymentMethod.contains('stripe')) {
+        // Native Stripe Payment Sheet Flow
+        if (context == null || !context.mounted) {
+          final s_safe = state.value ?? BookingState();
+          state = AsyncValue.data(s_safe.copyWith(
             isLoading: false,
-            requiresPayment: true,
-            checkoutUrl: stripeSession.url,
-            paymentType: 'stripe',
-            bookingStatus: response,
+            error: 'Payment context unavailable',
           ));
-        } else if (paymentMethod.contains('paypal')) {
-          final paypalOrder = await ref.read(bookingRepositoryProvider).createPayPalOrder(bookingId);
-          state = AsyncValue.data(state.value!.copyWith(
+          return;
+        }
+
+        final totalPrice = double.tryParse(s.selectedVehicle?.price?.toString() ?? '0') ?? 0.0;
+        final currency = s.selectedVehicle?.currency ?? 'usd';
+
+        try {
+          final success = await StripeService.processStripePayment(
+            context: context,
+            totalPrice: totalPrice,
+            currency: currency,
+            bookingId: bookingId,
+          );
+
+          if (success) {
+            // Payment succeeded → mark booking success
+            ref.read(bookingRepositoryProvider).addRecentDestination(s.destination);
+            ref.invalidate(bookingsStreamProvider);
+            final userId = Supabase.instance.client.auth.currentUser?.id;
+            if (userId != null) {
+              ref.read(notificationRepositoryProvider).insert(
+                userId: userId,
+                title: 'Booking Placed Successfully!',
+                body: 'Your booking #${bookingId.length > 8 ? bookingId.substring(0, 8) : bookingId} to ${s.destination} is placed and pending confirmation.',
+                type: 'booking',
+              ).catchError((e) => debugPrint('Note: Error inserting notification: $e'));
+            }
+            _triggerPushNotifications(bookingId, s.destination);
+            final s5 = state.value ?? BookingState();
+            state = AsyncValue.data(s5.copyWith(
+              isLoading: false,
+              bookingStatus: BookingResponse(
+                success: true,
+                message: 'Payment successful',
+                bookingId: bookingId,
+              ),
+            ));
+          } else {
+            // User cancelled or payment failed in WebView
+            final s6 = state.value ?? BookingState();
+            state = AsyncValue.data(s6.copyWith(
+              isLoading: false,
+              error: 'Payment cancelled or failed',
+            ));
+          }
+        } on StripeException catch (e) {
+          // User cancelled or card declined
+          final msg = e.error.localizedMessage ?? e.error.message ?? 'Payment cancelled';
+          final s6 = state.value ?? BookingState();
+          state = AsyncValue.data(s6.copyWith(
             isLoading: false,
-            requiresPayment: true,
-            checkoutUrl: paypalOrder.approvalUrl,
-            paymentType: 'paypal',
-            bookingStatus: response,
+            error: msg,
           ));
-        } else {
-          // Fallback if requiresPayment is true but method is unknown
-          state = AsyncValue.data(state.value!.copyWith(isLoading: false, bookingStatus: response));
+        }
+      } else if (paymentMethod.contains('paypal')) {
+        // Native PayPal Checkout Flow
+        if (context == null || !context.mounted) {
+          final s_safe = state.value ?? BookingState();
+          state = AsyncValue.data(s_safe.copyWith(
+            isLoading: false,
+            error: 'Payment context unavailable',
+          ));
+          return;
+        }
+
+        final totalPrice = double.tryParse(s.selectedVehicle?.price?.toString() ?? '0') ?? 0.0;
+        final currency = s.selectedVehicle?.currency ?? 'usd';
+
+        PaypalService.processPaypalPayment(
+          context: context,
+          totalPrice: totalPrice,
+          currency: currency,
+          bookingId: bookingId,
+          onSuccess: () {
+            ref.read(bookingRepositoryProvider).addRecentDestination(s.destination);
+            ref.invalidate(bookingsStreamProvider);
+            final userId = Supabase.instance.client.auth.currentUser?.id;
+            if (userId != null) {
+              ref.read(notificationRepositoryProvider).insert(
+                userId: userId,
+                title: 'Booking Placed Successfully!',
+                body: 'Your booking #${bookingId.length > 8 ? bookingId.substring(0, 8) : bookingId} to ${s.destination} is placed and pending confirmation.',
+                type: 'booking',
+              ).catchError((e) => debugPrint('Note: Error inserting notification: $e'));
+            }
+            _triggerPushNotifications(bookingId, s.destination);
+            final s8 = state.value ?? BookingState();
+            state = AsyncValue.data(s8.copyWith(
+              isLoading: false,
+              requiresPayment: false,
+              checkoutUrl: null,
+              bookingStatus: BookingResponse(
+                success: true,
+                message: 'Payment successful',
+                bookingId: bookingId,
+              ),
+            ));
+          },
+          onCancel: () {
+            final s9 = state.value ?? BookingState();
+            state = AsyncValue.data(s9.copyWith(
+              isLoading: false,
+              requiresPayment: false,
+              checkoutUrl: null,
+              error: 'PayPal Checkout cancelled.',
+            ));
+          },
+          onError: (errorMsg) {
+            final s10 = state.value ?? BookingState();
+            state = AsyncValue.data(s10.copyWith(
+              isLoading: false,
+              requiresPayment: false,
+              checkoutUrl: null,
+              error: 'PayPal Error: $errorMsg',
+            ));
+          },
+        );
+      } else if (paymentMethod.contains('wallet')) {
+        // Handle Wallet Payment
+        final totalPrice = double.tryParse(s.selectedVehicle?.price?.toString() ?? '0') ?? 0.0;
+        try {
+          await ref.read(userRepositoryProvider).deductWalletBalance(
+            totalPrice,
+            title: 'Ride Payment',
+            description: 'Payment for booking to ${s.destination}',
+          );
+          
+          // Refresh user profile to reflect new balance
+          await ref.refresh(userProfileProvider.future);
+          ref.invalidate(walletViewModelProvider);
+          
+          // Mark booking success
+          ref.read(bookingRepositoryProvider).addRecentDestination(s.destination);
+          ref.invalidate(bookingsStreamProvider);
+          final userId = Supabase.instance.client.auth.currentUser?.id;
+          if (userId != null) {
+            ref.read(notificationRepositoryProvider).insert(
+              userId: userId,
+              title: 'Booking Placed Successfully!',
+              body: 'Your booking #${bookingId.length > 8 ? bookingId.substring(0, 8) : bookingId} to ${s.destination} is placed and pending confirmation.',
+              type: 'booking',
+            ).catchError((e) => debugPrint('Note: Error inserting notification: $e'));
+          }
+          _triggerPushNotifications(bookingId, s.destination);
+          final s12 = state.value ?? BookingState();
+          state = AsyncValue.data(s12.copyWith(
+            isLoading: false,
+            bookingStatus: BookingResponse(
+              success: true,
+              message: 'Payment successful via Wallet',
+              bookingId: bookingId,
+            ),
+          ));
+        } catch (e) {
+          final s13 = state.value ?? BookingState();
+          state = AsyncValue.data(s13.copyWith(
+            isLoading: false,
+            error: e.toString().replaceAll('Exception: ', ''),
+          ));
         }
       } else {
-        state = AsyncValue.data(state.value!.copyWith(isLoading: false, bookingStatus: response));
-      }
-      
-      if (response.success) {
+        // No payment gateway → direct confirm
         ref.read(bookingRepositoryProvider).addRecentDestination(s.destination);
+        ref.invalidate(bookingsStreamProvider);
+        final bookingId = response.bookingId ?? '';
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId != null && bookingId.isNotEmpty) {
+          ref.read(notificationRepositoryProvider).insert(
+            userId: userId,
+            title: 'Booking Placed Successfully!',
+            body: 'Your booking #${bookingId.length > 8 ? bookingId.substring(0, 8) : bookingId} to ${s.destination} is placed and pending confirmation.',
+            type: 'booking',
+          ).catchError((e) => debugPrint('Note: Error inserting notification: $e'));
+          _triggerPushNotifications(bookingId, s.destination);
+        }
+        final s11 = state.value ?? BookingState();
+        state = AsyncValue.data(s11.copyWith(
+          isLoading: false,
+          bookingStatus: response,
+        ));
       }
     } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(isLoading: false, error: e.toString()));
+      final s12 = state.value ?? BookingState();
+      state = AsyncValue.data(s12.copyWith(isLoading: false, error: e.toString()));
     }
   }
 
-  Future<void> onStripeSuccess(String sessionId, int bookingId) async {
-    state = AsyncValue.data(state.value!.copyWith(isLoading: true, requiresPayment: false, checkoutUrl: null));
-    try {
-      final verifyResponse = await ref.read(bookingRepositoryProvider).verifyStripeSession(sessionId, bookingId);
-      if (verifyResponse.success) {
-        state = AsyncValue.data(state.value!.copyWith(
-          isLoading: false,
-          bookingStatus: BookingResponse(success: true, message: 'Payment successful', bookingId: bookingId),
-        ));
-      } else {
-        state = AsyncValue.data(state.value!.copyWith(
-          isLoading: false,
-          error: verifyResponse.message ?? 'Payment verification failed',
-        ));
-      }
-    } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(isLoading: false, error: e.toString()));
-    }
-  }
+  Future<void> _triggerPushNotifications(String bookingId, String destination) async {
+    final user = Supabase.instance.client.auth.currentUser;
+    final userId = user?.id;
+    if (userId == null) return;
 
-  Future<void> onPayPalSuccess(String token, int bookingId) async {
-    state = AsyncValue.data(state.value!.copyWith(isLoading: true, requiresPayment: false, checkoutUrl: null));
+    final shortId = bookingId.length > 8 ? bookingId.substring(0, 8) : bookingId;
+    final currentUserEmail = user?.email ?? 'Unknown User';
+
+    // Fetch user's full name from profiles
+    String senderName = currentUserEmail;
     try {
-      final executeResponse = await ref.read(bookingRepositoryProvider).executePayPalPayment(token, bookingId);
-      if (executeResponse.success) {
-        state = AsyncValue.data(state.value!.copyWith(
-          isLoading: false,
-          bookingStatus: BookingResponse(success: true, message: 'Payment successful', bookingId: bookingId),
-        ));
+      final userProfile = await Supabase.instance.client
+          .from('profiles')
+          .select('full_name')
+          .eq('id', userId)
+          .maybeSingle();
+      if (userProfile != null && userProfile['full_name'] != null) {
+        senderName = userProfile['full_name'] as String;
+      }
+    } catch (_) {}
+
+    // 1. Send push to passenger
+    PushNotificationService().sendPushNotification(
+      recipientUserId: userId,
+      title: 'Booking Placed Successfully! 🚗',
+      body: 'Your ride request #$shortId to $destination is pending chauffeur assignment.',
+    ).catchError((e) => debugPrint('Note: Error dispatching passenger push: $e'));
+
+    // 2. Fetch admins and send push to all of them
+    try {
+      final response = await Supabase.instance.client
+          .from('profiles')
+          .select('id')
+          .eq('role', 'admin');
+
+      if (response != null && response is List) {
+        debugPrint('📣 Found ${response.length} admin(s) in profiles. Dispatching admin alerts...');
+        for (final row in response) {
+          final adminId = row['id'] as String?;
+          if (adminId != null) {
+            debugPrint('📣 Dispatching admin push notification to Admin User ID: $adminId');
+            PushNotificationService().sendPushNotification(
+              recipientUserId: adminId,
+              title: 'New Booking Request Received! 🔔',
+              body: 'Ride #$shortId to $destination has been booked by $senderName ($currentUserEmail) and is waiting for your confirmation.',
+            ).catchError((e) => debugPrint('❌ Error dispatching admin push: $e'));
+          }
+        }
       } else {
-        state = AsyncValue.data(state.value!.copyWith(
-          isLoading: false,
-          error: executeResponse.message,
-        ));
+        debugPrint('⚠️ No admin profiles found to send push notifications.');
       }
     } catch (e) {
-      state = AsyncValue.data(state.value!.copyWith(isLoading: false, error: e.toString()));
+      debugPrint('❌ Could not query admin profiles for push notification: $e');
     }
   }
 
   void cancelPayment() {
-    state = AsyncValue.data(state.value!.copyWith(requiresPayment: false, checkoutUrl: null));
+    final s = state.value ?? BookingState();
+    state = AsyncValue.data(s.copyWith(requiresPayment: false, checkoutUrl: null));
   }
 }
 

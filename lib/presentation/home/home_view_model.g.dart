@@ -6,7 +6,7 @@ part of 'home_view_model.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$homeViewModelHash() => r'227beebeca394c78e5186c1394f5669d7324771a';
+String _$homeViewModelHash() => r'6b7c1b4a36051b9db7d1ca644e052b4216e467f5';
 
 /// See also [HomeViewModel].
 @ProviderFor(HomeViewModel)

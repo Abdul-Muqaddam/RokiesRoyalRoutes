@@ -79,21 +79,52 @@ class BookingSettings {
   }
 
   factory BookingSettings.fromJson(Map<String, dynamic> json) {
+    // Generic safe parsing helper for enums
+    List<T> safeList<T extends Enum>(List? items, List<T> values, List<T> defaults) {
+      if (items == null) return defaults;
+      return items
+          .map((e) {
+            try {
+              return values.firstWhere((v) => v.name == e.toString());
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<T>()
+          .toList();
+    }
+
+    Map<T, bool> safeMap<T extends Enum>(Map? vis, List<T> values, Map<T, bool> defaults) {
+      if (vis == null) return defaults;
+      final result = <T, bool>{};
+      vis.forEach((k, v) {
+        try {
+          final entry = values.firstWhere((e) => e.name == k.toString());
+          result[entry] = v as bool;
+        } catch (_) {
+          // Skip
+        }
+      });
+      return result.isEmpty ? defaults : result;
+    }
+
+    final defaultSets = BookingSettings.defaultSettings();
+
     return BookingSettings(
-      steps: (json['steps'] as List?)?.map((e) => BookingStep.values.byName(e)).toList() ?? BookingStep.values.toList(),
-      visibility: (json['visibility'] as Map<String, dynamic>?)?.map((k, v) => MapEntry(BookingStep.values.byName(k), v as bool)) ?? { for (var v in BookingStep.values) v: true },
+      steps: safeList(json['steps'] as List?, BookingStep.values, defaultSets.steps),
+      visibility: safeMap(json['visibility'] as Map?, BookingStep.values, defaultSets.visibility),
       
-      step1Order: (json['step1Order'] as List).map((e) => BookingStep1Section.values.byName(e)).toList(),
-      step1Visibility: (json['step1Visibility'] as Map<String, dynamic>).map((k, v) => MapEntry(BookingStep1Section.values.byName(k), v as bool)),
+      step1Order: safeList(json['step1Order'] as List?, BookingStep1Section.values, defaultSets.step1Order),
+      step1Visibility: safeMap(json['step1Visibility'] as Map?, BookingStep1Section.values, defaultSets.step1Visibility),
       
-      step2Order: (json['step2Order'] as List).map((e) => BookingStep2Section.values.byName(e)).toList(),
-      step2Visibility: (json['step2Visibility'] as Map<String, dynamic>).map((k, v) => MapEntry(BookingStep2Section.values.byName(k), v as bool)),
+      step2Order: safeList(json['step2Order'] as List?, BookingStep2Section.values, defaultSets.step2Order),
+      step2Visibility: safeMap(json['step2Visibility'] as Map?, BookingStep2Section.values, defaultSets.step2Visibility),
       
-      step3Order: (json['step3Order'] as List).map((e) => BookingStep3Section.values.byName(e)).toList(),
-      step3Visibility: (json['step3Visibility'] as Map<String, dynamic>).map((k, v) => MapEntry(BookingStep3Section.values.byName(k), v as bool)),
+      step3Order: safeList(json['step3Order'] as List?, BookingStep3Section.values, defaultSets.step3Order),
+      step3Visibility: safeMap(json['step3Visibility'] as Map?, BookingStep3Section.values, defaultSets.step3Visibility),
       
-      step4Order: (json['step4Order'] as List).map((e) => BookingStep4Section.values.byName(e)).toList(),
-      step4Visibility: (json['step4Visibility'] as Map<String, dynamic>).map((k, v) => MapEntry(BookingStep4Section.values.byName(k), v as bool)),
+      step4Order: safeList(json['step4Order'] as List?, BookingStep4Section.values, defaultSets.step4Order),
+      step4Visibility: safeMap(json['step4Visibility'] as Map?, BookingStep4Section.values, defaultSets.step4Visibility),
     );
   }
 

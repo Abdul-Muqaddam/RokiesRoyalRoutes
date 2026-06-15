@@ -1,5 +1,5 @@
 class UserBookingResponse {
-  final int id;
+  final String id;
   final String? title;
   final String? status;
   final String? pickupLocation;
@@ -31,7 +31,7 @@ class UserBookingResponse {
 
   factory UserBookingResponse.fromJson(Map<String, dynamic> json) {
     return UserBookingResponse(
-      id: json['id'] is int ? json['id'] as int : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      id: (json['id'] ?? '0').toString(),
       title: (json['vehicleName'] ?? json['title'] ?? '').toString(),
       status: (json['status'] ?? '').toString(),
       pickupLocation: (json['pickupLocation'] ?? json['pickup_location'] ?? '').toString(),
@@ -68,7 +68,7 @@ class UserBookingsWrapperDto {
   }
 }
 
-enum TripStatus { confirmed, pending, cancelled, past }
+enum TripStatus { confirmed, pending, cancelled, past, inProgress, arrived }
 
 class Trip {
   final String id;
@@ -82,6 +82,10 @@ class Trip {
   final String? dropoffLocation;
   final String? price;
   final String? reference;
+  final String? userId;
+  final String? driverId;
+  final String? paymentGateway;
+  final String? vehicleId;
 
   Trip({
     required this.id,
@@ -95,11 +99,15 @@ class Trip {
     this.dropoffLocation,
     this.price,
     this.reference,
+    this.userId,
+    this.driverId,
+    this.paymentGateway,
+    this.vehicleId,
   });
 }
 
 class BookingRequest {
-  final int vehicleId;
+  final String vehicleId;
   final String pickupLocation;
   final String dropoffLocation;
   final String pickupDate;
@@ -169,7 +177,7 @@ class CustomerInfoDto {
 
 class BookingResponse {
   final bool success;
-  final int? bookingId;
+  final String? bookingId;
   final String message;
   final String? paymentGateway;
   final bool? requiresPayment;
@@ -187,7 +195,7 @@ class BookingResponse {
   factory BookingResponse.fromJson(Map<String, dynamic> json) {
     return BookingResponse(
       success: json['success'] as bool? ?? false,
-      bookingId: json['booking_id'] as int?,
+      bookingId: json['booking_id']?.toString(),
       message: json['message'] as String? ?? '',
       paymentGateway: json['payment_gateway'] as String?,
       requiresPayment: json['requires_payment'] as bool?,
@@ -305,7 +313,7 @@ class PayPalOrderResponse {
 }
 
 class PayPalOrderRequest {
-  final int bookingId;
+  final String bookingId;
 
   PayPalOrderRequest(this.bookingId);
 
@@ -314,7 +322,7 @@ class PayPalOrderRequest {
 
 class PayPalExecuteRequest {
   final String orderId;
-  final int bookingId;
+  final String bookingId;
 
   PayPalExecuteRequest(this.orderId, this.bookingId);
 
@@ -341,7 +349,7 @@ class PayPalExecuteResponse {
 class StripeVerifyResponse {
   final bool success;
   final String? message;
-  final int? bookingId;
+  final String? bookingId;
 
   StripeVerifyResponse({required this.success, this.message, this.bookingId});
 
@@ -349,7 +357,27 @@ class StripeVerifyResponse {
     return StripeVerifyResponse(
       success: json['success'] as bool? ?? false,
       message: json['message']?.toString(),
-      bookingId: json['booking_id'] as int?,
+      bookingId: json['booking_id']?.toString(),
     );
   }
+}
+
+List<double>? parseLatLngFromString(String? locationStr) {
+  if (locationStr == null || locationStr.isEmpty) return null;
+  final regExp = RegExp(r'\(([^,]+),\s*([^)]+)\)');
+  final match = regExp.firstMatch(locationStr);
+  if (match != null && match.groupCount == 2) {
+    final lat = double.tryParse(match.group(1) ?? '');
+    final lng = double.tryParse(match.group(2) ?? '');
+    if (lat != null && lng != null) {
+      return [lat, lng];
+    }
+  }
+  return null;
+}
+
+String cleanLocationName(String? locationStr) {
+  if (locationStr == null || locationStr.isEmpty) return '';
+  final regExp = RegExp(r'\s*\([^)]+\)');
+  return locationStr.replaceAll(regExp, '').trim();
 }

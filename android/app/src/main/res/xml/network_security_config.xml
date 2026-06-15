@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <!-- Allow all HTTPS traffic (default system CAs) -->
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <!-- Trust preinstalled system CAs -->
+            <certificates src="system" />
+            <!-- Trust user-added CAs (needed for some emulator/proxy setups) -->
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

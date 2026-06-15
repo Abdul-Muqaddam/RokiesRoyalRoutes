@@ -6,6 +6,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/providers/app_color_provider.dart';
 import '../../data/providers/app_config_provider.dart';
+import '../widgets/app_dialog.dart';
+import 'vehicle_management_screen.dart';
 
 class CustomizationScreen extends ConsumerStatefulWidget {
   const CustomizationScreen({super.key});
@@ -14,7 +16,8 @@ class CustomizationScreen extends ConsumerStatefulWidget {
   ConsumerState<CustomizationScreen> createState() => _CustomizationScreenState();
 }
 
-class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
+class _CustomizationScreenState extends ConsumerState<CustomizationScreen>
+    with SingleTickerProviderStateMixin {
   final _accentHexController = TextEditingController();
   final _primaryHexController = TextEditingController();
   final _textHexController = TextEditingController();
@@ -24,10 +27,12 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
   String? _textErrorMessage;
   String? _highlightTextErrorMessage;
   bool _isUpdating = false;
+  late TabController _tabController;
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _updateControllers();
   }
 
@@ -45,6 +50,7 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
 
   @override
   void dispose() {
+    _tabController.dispose();
     _accentHexController.dispose();
     _primaryHexController.dispose();
     _textHexController.dispose();
@@ -94,14 +100,20 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
       await ref.read(appConfigProvider.notifier).updateConfig(newConfig);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('$colorName color updated and synced with cloud!')),
+        AppDialog.show(
+          context: context,
+          title: 'Success',
+          message: '$colorName color updated and synced with cloud!',
+          icon: Icons.check_circle_outline,
+          iconColor: Colors.green,
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to sync $colorName color: $e'), backgroundColor: Colors.red),
+        AppDialog.show(
+          context: context,
+          title: 'Sync Error',
+          message: 'Failed to sync $colorName color: $e',
         );
       }
     } finally {
@@ -254,11 +266,7 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
       appBar: AppBar(
         title: Text(
           'Customize App',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontSize: 20.sp,
-          ),
+          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 20.sp),
         ),
         actions: [
           IconButton(
@@ -268,8 +276,12 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
               try {
                 await ref.read(appConfigProvider.notifier).fetchConfig();
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Configuration refreshed from cloud!')),
+                  AppDialog.show(
+                    context: context,
+                    title: 'Success',
+                    message: 'Configuration refreshed from cloud!',
+                    icon: Icons.refresh,
+                    iconColor: Colors.green,
                   );
                 }
               } finally {
@@ -279,108 +291,119 @@ class _CustomizationScreenState extends ConsumerState<CustomizationScreen> {
             tooltip: 'Refresh from Cloud',
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: Size.fromHeight(48.h),
+          child: TabBar(
+            controller: _tabController,
+            indicatorColor: accentColor,
+            indicatorWeight: 3,
+            labelColor: Colors.white,
+            unselectedLabelColor: Colors.white60,
+            labelStyle: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold),
+            unselectedLabelStyle: TextStyle(fontSize: 14.sp),
+            tabs: const [
+              Tab(icon: Icon(Icons.palette_outlined), text: 'App Theme'),
+              Tab(icon: Icon(Icons.directions_car_outlined), text: 'Vehicles'),
+            ],
+          ),
+        ),
       ),
       body: Stack(
         children: [
-          SafeArea(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text(
-                      'Theme Customization',
-                      style: TextStyle(
-                        fontSize: 24.sp,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).colorScheme.primary,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 8.h),
-                    Text(
-                      'Enter hex codes to personalize your app theme',
-                      style: TextStyle(
-                        fontSize: 14.sp,
-                        color: Theme.of(context).textTheme.bodyMedium?.color,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: 32.h),
-
-                    // Accent Color Section
-                    _buildColorSection(
-                      title: 'Accent Color',
-                      subtitle: 'Buttons, highlights, icons',
-                      controller: _accentHexController,
-                      errorMessage: _accentErrorMessage,
-                      previewColor: accentColor,
-                      accentColor: accentColor,
-                      textColor: textColor,
-                      onApply: _applyAccentColor,
-                    ),
-                    SizedBox(height: 20.h),
-
-                    // Primary Color Section
-                    _buildColorSection(
-                      title: 'Primary Color',
-                      subtitle: 'Navigation bar, text, headings',
-                      controller: _primaryHexController,
-                      errorMessage: _primaryErrorMessage,
-                      previewColor: primaryColor,
-                      accentColor: accentColor,
-                      textColor: textColor,
-                      onApply: _applyPrimaryColor,
-                    ),
-                    SizedBox(height: 20.h),
-
-                    // Text Color Section
-                    _buildColorSection(
-                      title: 'App Text Color',
-                      subtitle: 'Text throughout the entire application',
-                      controller: _textHexController,
-                      errorMessage: _textErrorMessage,
-                      previewColor: textColor,
-                      accentColor: accentColor,
-                      textColor: textColor,
-                      onApply: _applyTextColor,
-                    ),
-                    SizedBox(height: 20.h),
-
-                    // Highlight Text Color Section
-                    _buildColorSection(
-                      title: 'Highlighted Text Color',
-                      subtitle: 'Text on buttons and highlighted areas',
-                      controller: _highlightTextHexController,
-                      errorMessage: _highlightTextErrorMessage,
-                      previewColor: highlightTextColor,
-                      accentColor: accentColor,
-                      textColor: textColor,
-                      onApply: _applyHighlightTextColor,
-                    ),
-                    SizedBox(height: 32.h),
-                    _HomeScreenCustomizationComponent(accentColor: accentColor),
-                    SizedBox(height: 20.h),
-                    _ProfileScreenCustomizationComponent(accentColor: accentColor),
-                    SizedBox(height: 20.h),
-                    ...List.generate(4, (index) => Column(
+          TabBarView(
+            controller: _tabController,
+            children: [
+              // ── Tab 1: App Customization ─────────────────────────────────
+              SafeArea(
+                child: SingleChildScrollView(
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _BookingStepCard(stepNumber: index + 1, accentColor: accentColor),
-                        if (index < 3) SizedBox(height: 20.h),
+                        Text(
+                          'Theme Customization',
+                          style: TextStyle(fontSize: 24.sp, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 8.h),
+                        Text(
+                          'Enter hex codes to personalize your app theme',
+                          style: TextStyle(fontSize: 14.sp, color: Theme.of(context).textTheme.bodyMedium?.color),
+                          textAlign: TextAlign.center,
+                        ),
+                        SizedBox(height: 32.h),
+                        _buildColorSection(
+                          title: 'Accent Color',
+                          subtitle: 'Buttons, highlights, icons',
+                          controller: _accentHexController,
+                          errorMessage: _accentErrorMessage,
+                          previewColor: accentColor,
+                          accentColor: accentColor,
+                          textColor: textColor,
+                          onApply: _applyAccentColor,
+                        ),
+                        SizedBox(height: 20.h),
+                        _buildColorSection(
+                          title: 'Primary Color',
+                          subtitle: 'Navigation bar, text, headings',
+                          controller: _primaryHexController,
+                          errorMessage: _primaryErrorMessage,
+                          previewColor: primaryColor,
+                          accentColor: accentColor,
+                          textColor: textColor,
+                          onApply: _applyPrimaryColor,
+                        ),
+                        SizedBox(height: 20.h),
+                        _buildColorSection(
+                          title: 'App Text Color',
+                          subtitle: 'Text throughout the entire application',
+                          controller: _textHexController,
+                          errorMessage: _textErrorMessage,
+                          previewColor: textColor,
+                          accentColor: accentColor,
+                          textColor: textColor,
+                          onApply: _applyTextColor,
+                        ),
+                        SizedBox(height: 20.h),
+                        _buildColorSection(
+                          title: 'Highlighted Text Color',
+                          subtitle: 'Text on buttons and highlighted areas',
+                          controller: _highlightTextHexController,
+                          errorMessage: _highlightTextErrorMessage,
+                          previewColor: highlightTextColor,
+                          accentColor: accentColor,
+                          textColor: textColor,
+                          onApply: _applyHighlightTextColor,
+                        ),
+                        SizedBox(height: 32.h),
+                        _HomeScreenCustomizationComponent(accentColor: accentColor),
+                        SizedBox(height: 20.h),
+                        _ProfileScreenCustomizationComponent(accentColor: accentColor),
+                        SizedBox(height: 20.h),
+                        ...List.generate(4, (index) => Column(
+                          children: [
+                            _BookingStepCard(stepNumber: index + 1, accentColor: accentColor),
+                            if (index < 3) SizedBox(height: 20.h),
+                          ],
+                        )),
+                        SizedBox(height: 24.h),
                       ],
-                    )),
-                  ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+
+              // ── Tab 2: Vehicle Management ────────────────────────────────
+              const SafeArea(
+                child: VehicleManagementScreen(),
+              ),
+            ],
           ),
           if (_isUpdating)
             Container(
               color: Colors.black.withOpacity(0.3),
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
+              child: const Center(child: CircularProgressIndicator()),
             ),
         ],
       ),

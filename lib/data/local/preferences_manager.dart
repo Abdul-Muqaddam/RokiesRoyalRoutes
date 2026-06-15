@@ -18,6 +18,8 @@ class PreferencesManager {
   static const String _userIdKey = 'user_id';
   static const String _keyAdminRememberMe = 'admin_remember_me';
   static const String _keyAdminToken = 'admin_auth_token';
+  static const String _keyDriverToken = 'driver_auth_token';
+
 
   Future<void> saveToken(String token) async {
     await _prefs.setString(_keyToken, token);
@@ -42,6 +44,19 @@ class PreferencesManager {
   Future<void> removeAdminToken() async {
     await _prefs.remove(_keyAdminToken);
   }
+
+  Future<void> saveDriverToken(String token) async {
+    await _prefs.setString(_keyDriverToken, token);
+  }
+
+  String? getDriverToken() {
+    return _prefs.getString(_keyDriverToken);
+  }
+
+  Future<void> removeDriverToken() async {
+    await _prefs.remove(_keyDriverToken);
+  }
+
 
   Future<void> saveUserId(int id) async {
     await _prefs.setInt(_userIdKey, id);

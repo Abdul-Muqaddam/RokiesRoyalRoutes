@@ -4,6 +4,8 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/user_models.dart';
 import '../../data/repositories/user_repository_impl.dart';
+import '../widgets/app_dialog.dart';
+import '../widgets/phone_field.dart';
 import 'personal_information_view_model.dart';
 
 class PersonalInformationScreen extends ConsumerStatefulWidget {
@@ -22,18 +24,28 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
   late TextEditingController _websiteController;
   late TextEditingController _bioController;
   late TextEditingController _nicknameController;
+  bool _isInitialized = false;
 
   @override
   void initState() {
     super.initState();
-    final user = ref.read(userProfileProvider).value;
-    _nameController = TextEditingController(text: user?.name ?? '');
-    _firstNameController = TextEditingController(text: user?.firstName ?? '');
-    _lastNameController = TextEditingController(text: user?.lastName ?? '');
-    _phoneController = TextEditingController(text: user?.phone ?? '');
-    _websiteController = TextEditingController(text: user?.website ?? '');
-    _bioController = TextEditingController(text: user?.bio ?? '');
-    _nicknameController = TextEditingController(text: user?.nickname ?? '');
+    _nameController = TextEditingController();
+    _firstNameController = TextEditingController();
+    _lastNameController = TextEditingController();
+    _phoneController = TextEditingController();
+    _websiteController = TextEditingController();
+    _nicknameController = TextEditingController();
+  }
+
+  void _initializeControllers(UserDto user) {
+    if (_isInitialized) return;
+    _nameController.text = user.name;
+    _firstNameController.text = user.firstName;
+    _lastNameController.text = user.lastName;
+    _phoneController.text = user.phone;
+    _websiteController.text = user.website;
+    _nicknameController.text = user.nickname;
+    _isInitialized = true;
   }
 
   @override
@@ -43,7 +55,6 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
     _lastNameController.dispose();
     _phoneController.dispose();
     _websiteController.dispose();
-    _bioController.dispose();
     _nicknameController.dispose();
     super.dispose();
   }
@@ -53,17 +64,42 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
     final userAsync = ref.watch(userProfileProvider);
     final viewModelState = ref.watch(personalInformationViewModelProvider);
 
+    // Listen to view model state for success/error handling
     ref.listen(personalInformationViewModelProvider, (previous, next) {
       if (next is AsyncError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.error.toString()), backgroundColor: Colors.red),
+        AppDialog.show(
+          context: context,
+          type: DialogType.error,
+          title: 'Update Failed',
+          message: next.error.toString().contains('42501') 
+            ? 'Permission denied. You likely need to run the RLS policies in your Supabase SQL editor to allow profile updates.'
+            : next.error.toString(),
         );
       } else if (next is AsyncData && previous is AsyncLoading) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully!'), backgroundColor: Colors.green),
+        // Force re-initialization from the updated provider data next time it changes
+        _isInitialized = false;
+        
+        AppDialog.show(
+          context: context,
+          type: DialogType.success,
+          title: 'Success',
+          message: 'Profile updated successfully!',
+          autoDismissDuration: const Duration(seconds: 2),
+          onPrimaryPressed: () {
+            Navigator.pop(context); // Close dialog
+            Navigator.pop(context); // Go back to previous screen
+          },
         );
-        Navigator.pop(context);
       }
+    });
+
+    // Listen to user profile changes and update controllers
+    ref.listen(userProfileProvider, (previous, next) {
+      next.whenData((user) {
+        if (!_isInitialized) {
+          _initializeControllers(user);
+        }
+      });
     });
 
     return Scaffold(
@@ -73,92 +109,100 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
         elevation: 0,
       ),
       body: userAsync.when(
-        data: (user) => SingleChildScrollView(
-          padding: EdgeInsets.all(20.w),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Profile Details',
-                  style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w500),
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Username',
-                  controller: TextEditingController(text: user.email.split('@').first), // Placeholder if username not in DTO
-                  icon: Icons.person_outline,
-                  readOnly: true,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'First Name',
-                  controller: _firstNameController,
-                  icon: Icons.person_outline,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Last Name',
-                  controller: _lastNameController,
-                  icon: Icons.person_outline,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Display Name',
-                  controller: _nameController,
-                  icon: Icons.person_outline,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Email Address',
-                  controller: TextEditingController(text: user.email),
-                  icon: Icons.email_outlined,
-                  readOnly: true,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Nickname',
-                  controller: _nicknameController,
-                  icon: Icons.face_outlined,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Phone Number',
-                  controller: _phoneController,
-                  icon: Icons.phone_outlined,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Website',
-                  controller: _websiteController,
-                  icon: Icons.language_outlined,
-                ),
-                SizedBox(height: 16.h),
-                _InfoTextField(
-                  label: 'Bio',
-                  controller: _bioController,
-                  icon: Icons.description_outlined,
-                  maxLines: 3,
-                ),
-                SizedBox(height: 32.h),
-                ElevatedButton(
-                  onPressed: viewModelState is AsyncLoading ? null : _saveChanges,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.secondary,
-                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                    minimumSize: Size(double.infinity, 54.h),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
+        data: (user) {
+          // Fallback initialization if it hasn't happened yet
+          if (!_isInitialized) {
+            _initializeControllers(user);
+          }
+          
+          return SingleChildScrollView(
+            padding: EdgeInsets.all(20.w),
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Profile Details',
+                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w500),
                   ),
-                  child: viewModelState is AsyncLoading
-                      ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary)
-                      : Text('Save Changes', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
-                ),
-                SizedBox(height: 24.h),
-              ],
+                  SizedBox(height: 16.h),
+                  _InfoTextField(
+                    label: 'Email Address (Read Only)',
+                    controller: TextEditingController(text: user.email),
+                    icon: Icons.email_outlined,
+                    readOnly: true,
+                  ),
+                  SizedBox(height: 16.h),
+                  _InfoTextField(
+                    label: 'First Name',
+                    controller: _firstNameController,
+                    icon: Icons.person_outline,
+                  ),
+                  SizedBox(height: 16.h),
+                  _InfoTextField(
+                    label: 'Last Name',
+                    controller: _lastNameController,
+                    icon: Icons.person_outline,
+                  ),
+                  SizedBox(height: 16.h),
+                  _InfoTextField(
+                    label: 'Display Name (Full Name)',
+                    controller: _nameController,
+                    icon: Icons.person_outline,
+                    onChanged: (val) {
+                      // Automatically try to fill first/last if empty
+                      if (val.contains(' ') && _firstNameController.text.isEmpty && _lastNameController.text.isEmpty) {
+                        final parts = val.split(' ');
+                        _firstNameController.text = parts.first;
+                        _lastNameController.text = parts.last;
+                      }
+                    },
+                  ),
+                  SizedBox(height: 16.h),
+                  _InfoTextField(
+                    label: 'Nickname',
+                    controller: _nicknameController,
+                    icon: Icons.face_outlined,
+                  ),
+                  SizedBox(height: 16.h),
+                  Text(
+                    'Phone Number',
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  SizedBox(height: 8.h),
+                  AppPhoneField(
+                    controller: _phoneController,
+                  ),
+                  SizedBox(height: 16.h),
+                  _InfoTextField(
+                    label: 'Website',
+                    controller: _websiteController,
+                    icon: Icons.language_outlined,
+                  ),
+                  SizedBox(height: 32.h),
+                  ElevatedButton(
+                    onPressed: viewModelState is AsyncLoading ? null : _saveChanges,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                      foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                      minimumSize: Size(double.infinity, 54.h),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
+                    ),
+                    child: viewModelState is AsyncLoading
+                        ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary)
+                        : Text('Save Changes', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
+                  ),
+                  SizedBox(height: 24.h),
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
         loading: () => Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary)),
         error: (err, stack) => Center(child: Text('Error: $err')),
       ),
@@ -174,7 +218,6 @@ class _PersonalInformationScreenState extends ConsumerState<PersonalInformationS
         nickname: _nicknameController.text,
         phone: _phoneController.text,
         website: _websiteController.text,
-        bio: _bioController.text,
       );
     }
   }
@@ -186,6 +229,7 @@ class _InfoTextField extends StatelessWidget {
   final IconData icon;
   final bool readOnly;
   final int maxLines;
+  final ValueChanged<String>? onChanged;
 
   const _InfoTextField({
     required this.label,
@@ -193,6 +237,7 @@ class _InfoTextField extends StatelessWidget {
     required this.icon,
     this.readOnly = false,
     this.maxLines = 1,
+    this.onChanged,
   });
 
   @override
@@ -202,27 +247,32 @@ class _InfoTextField extends StatelessWidget {
       children: [
         Text(
           label,
-          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp),
+          style: TextStyle(
+            color: Colors.grey[600],
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w500,
+          ),
         ),
-        SizedBox(height: 4.h),
+        SizedBox(height: 8.h),
         TextFormField(
           controller: controller,
           readOnly: readOnly,
           maxLines: maxLines,
+          onChanged: onChanged,
+          style: TextStyle(
+            fontSize: 14.sp,
+            color: readOnly ? Colors.grey : AppColors.black,
+            fontWeight: FontWeight.w500,
+          ),
           decoration: InputDecoration(
-            prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 18.w),
+            prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.secondary, size: 20.w),
             filled: true,
-            fillColor: AppColors.lightGray,
+            fillColor: readOnly ? Colors.grey[100] : Colors.grey[50],
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12.r),
               borderSide: BorderSide.none,
             ),
             contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          ),
-          style: TextStyle(
-            color: readOnly ? Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.5) : Theme.of(context).textTheme.bodyMedium?.color,
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w500,
           ),
         ),
       ],

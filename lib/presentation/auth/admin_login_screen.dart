@@ -1,3 +1,4 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,7 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:dio/dio.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/local/preferences_manager.dart';
-
+import '../widgets/app_dialog.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 
@@ -35,8 +36,10 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     final password = _passwordController.text;
 
     if (username.isEmpty || password.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter both username and password')),
+      AppDialog.show(
+        context: context,
+        title: 'Input Required',
+        message: 'Please enter both username and password',
       );
       return;
     }
@@ -53,21 +56,27 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
           }
           context.pushReplacement('/customization');
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(response.message.isNotEmpty ? response.message : 'Invalid credentials')),
+          AppDialog.show(
+            context: context,
+            title: 'Login Failed',
+            message: response.message.isNotEmpty ? response.message : 'Invalid credentials',
           );
         }
       }
     } on DioException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Invalid credentials')),
+        AppDialog.show(
+          context: context,
+          title: 'Login Failed',
+          message: 'Invalid credentials',
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Login failed: Invalid credentials')),
+        AppDialog.show(
+          context: context,
+          title: 'Login Failed',
+          message: 'Invalid credentials',
         );
       }
     } finally {
@@ -83,34 +92,37 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
     required String iconAsset,
     bool isPassword = false,
   }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword && !_passwordVisible,
-      style: const TextStyle(color: AppColors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6)),
-        filled: true,
-        fillColor: AppColors.inputFillColor,
-        prefixIcon: Padding(
-          padding: EdgeInsets.all(12.w),
-          child: SvgPicture.asset(iconAsset, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 24.w, height: 24.w),
-        ),
-        suffixIcon: isPassword ? IconButton(
-          icon: SvgPicture.asset(
-            _passwordVisible ? 'assets/icons/ic_eye.svg' : 'assets/icons/ic_eye_off.svg',
-            colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn),
-            width: 24.w, height: 24.w,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16.r),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: TextField(
+        controller: controller,
+        obscureText: isPassword && !_passwordVisible,
+        style: TextStyle(color: AppColors.white, fontSize: 15.sp),
+        decoration: InputDecoration(
+          labelText: label,
+          labelStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14.sp),
+          contentPadding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 18.h),
+          border: InputBorder.none,
+          prefixIcon: Padding(
+            padding: EdgeInsets.only(left: 16.w, right: 12.w),
+            child: SvgPicture.asset(
+              iconAsset, 
+              colorFilter: ColorFilter.mode(AppColors.gold.withOpacity(0.8), BlendMode.srcIn), 
+              width: 20.w,
+            ),
           ),
-          onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
-        ) : null,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.r),
-          borderSide: const BorderSide(color: Colors.white24),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
+          suffixIcon: isPassword ? IconButton(
+            icon: Icon(
+              _passwordVisible ? Icons.visibility_rounded : Icons.visibility_off_rounded,
+              color: Colors.white.withOpacity(0.5),
+              size: 20.sp,
+            ),
+            onPressed: () => setState(() => _passwordVisible = !_passwordVisible),
+          ) : null,
         ),
       ),
     );
@@ -122,76 +134,163 @@ class _AdminLoginScreenState extends ConsumerState<AdminLoginScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          Image.network(
-            'https://storage.googleapis.com/uxpilot-auth.appspot.com/f83471f3ec-dc37248d325e8dbe5c12.png',
+          Image.asset(
+            'assets/images/login_bg.png',
             fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: Theme.of(context).colorScheme.primary), // fallback
           ),
-          Container(color: Colors.black.withOpacity(0.6)), // Overlay
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.3),
+                  Colors.black.withOpacity(0.7),
+                  Colors.black,
+                ],
+              ),
+            ),
+          ),
           SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: IntrinsicHeight(
-                      child: Padding(
-                        padding: EdgeInsets.all(24.w),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.symmetric(horizontal: 28.w),
+              child: Column(
+                children: [
+                  SizedBox(height: 60.h),
+                  Column(
+                    children: [
+                      Text(
+                        'ADMIN PANEL',
+                        style: TextStyle(
+                          fontSize: 28.sp,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.white,
+                          letterSpacing: 4,
+                        ),
+                      ),
+                      Text(
+                        'ROCKIES ROYAL ROUTES',
+                        style: TextStyle(
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.gold,
+                          letterSpacing: 2,
+                        ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 60.h),
+                  
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(32.r),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15, sigmaY: 15),
+                      child: Container(
+                        padding: EdgeInsets.all(32.w),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.05),
+                          borderRadius: BorderRadius.circular(32.r),
+                          border: Border.all(color: Colors.white.withOpacity(0.1)),
+                        ),
                         child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            const Spacer(),
-                            Text('Admin Login', style: TextStyle(fontSize: 28.sp, fontWeight: FontWeight.bold, color: AppColors.white), textAlign: TextAlign.center),
+                            Text(
+                              'Admin Login',
+                              style: TextStyle(
+                                fontSize: 24.sp,
+                                fontWeight: FontWeight.bold,
+                                color: AppColors.white,
+                              ),
+                            ),
                             SizedBox(height: 8.h),
-                            Text('Log in to continue to the admin panel', style: TextStyle(fontSize: 14.sp, color: Colors.white70), textAlign: TextAlign.center),
-                            SizedBox(height: 48.h),
+                            Text(
+                              'Access secure administrative controls',
+                              style: TextStyle(
+                                fontSize: 13.sp,
+                                color: Colors.white.withOpacity(0.6),
+                              ),
+                            ),
+                            SizedBox(height: 32.h),
 
                             _buildTextField(controller: _usernameController, label: 'Username', iconAsset: 'assets/icons/ic_user.svg'),
                             SizedBox(height: 16.h),
                             _buildTextField(controller: _passwordController, label: 'Password', iconAsset: 'assets/icons/ic_lock.svg', isPassword: true),
                             
-                            SizedBox(height: 8.h),
+                            SizedBox(height: 12.h),
                             Row(
                               children: [
-                                Theme(
-                                  data: Theme.of(context).copyWith(unselectedWidgetColor: Colors.white70),
+                                SizedBox(
+                                  width: 20.w,
+                                  height: 20.w,
                                   child: Checkbox(
                                     value: _rememberMe,
                                     onChanged: (val) => setState(() => _rememberMe = val ?? false),
-                                    activeColor: Theme.of(context).colorScheme.secondary,
-                                    checkColor: Theme.of(context).colorScheme.primary,
+                                    activeColor: AppColors.gold,
+                                    side: BorderSide(color: Colors.white.withOpacity(0.3)),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4.r)),
                                   ),
                                 ),
+                                SizedBox(width: 8.w),
                                 GestureDetector(
                                   onTap: () => setState(() => _rememberMe = !_rememberMe),
-                                  child: Text('Remember me', style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
+                                  child: Text('Remember me', style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13.sp)),
                                 ),
                               ],
                             ),
                             
-                            SizedBox(height: 24.h),
+                            SizedBox(height: 32.h),
 
-                            ElevatedButton(
-                                  onPressed: _isLoading ? () {} : _handleLogin,
-                                  style: ElevatedButton.styleFrom(
-                                    padding: EdgeInsets.symmetric(vertical: 16.h),
-                                    backgroundColor: Theme.of(context).colorScheme.secondary,
-                                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                            _isLoading 
+                              ? Center(child: CircularProgressIndicator(color: AppColors.gold))
+                              : Container(
+                                  height: 56.h,
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(16.r),
+                                    gradient: LinearGradient(
+                                      colors: [AppColors.gold, Color(0xFFB8860B)],
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: AppColors.gold.withOpacity(0.4),
+                                        blurRadius: 20,
+                                        offset: Offset(0, 10),
+                                      ),
+                                    ],
                                   ),
-                                  child: _isLoading 
-                                      ? SizedBox(height: 20.h, width: 20.h, child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onSecondary))
-                                      : Text('Login', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
+                                  child: ElevatedButton(
+                                    onPressed: _handleLogin,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
+                                    ),
+                                    child: Text(
+                                      'LOGIN', 
+                                      style: TextStyle(
+                                        fontSize: 16.sp, 
+                                        fontWeight: FontWeight.bold, 
+                                        color: Colors.black,
+                                        letterSpacing: 1.5,
+                                      )
+                                    ),
+                                  ),
                                 ),
-                            const Spacer(),
                           ],
                         ),
                       ),
                     ),
                   ),
-                );
-              },
+                  SizedBox(height: 40.h),
+                  TextButton(
+                    onPressed: () => context.pop(),
+                    child: Text(
+                      'Back to Passenger/Driver Login',
+                      style: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 13.sp),
+                    ),
+                  ),
+                ],
+              ),
             ),
           )
         ],

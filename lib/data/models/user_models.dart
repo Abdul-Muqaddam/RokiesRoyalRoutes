@@ -6,11 +6,16 @@ class UserDto {
   final String avatarUrl;
   final int totalTrips;
   final String totalSpent;
+  final double walletBalance;
   final String firstName;
   final String lastName;
   final String nickname;
-  final String bio;
   final String website;
+  final String role;
+  final double rating;
+
+
+  final String? uid;
 
   UserDto({
     required this.id,
@@ -20,14 +25,22 @@ class UserDto {
     this.avatarUrl = '',
     this.totalTrips = 0,
     this.totalSpent = '\$0.00',
+    this.walletBalance = 0.0,
     this.firstName = '',
     this.lastName = '',
     this.nickname = '',
-    this.bio = '',
     this.website = '',
+    this.role = 'user',
+    this.rating = 4.9,
+    this.uid,
   });
 
-  String get displayName => name.isNotEmpty ? name : 'User';
+
+  String get displayName {
+    if (name.isNotEmpty) return name;
+    if (email.isNotEmpty) return email.split('@').first;
+    return 'User';
+  }
 
   factory UserDto.fromJson(Map<String, dynamic> json) {
     return UserDto(
@@ -38,13 +51,15 @@ class UserDto {
       avatarUrl: (json['avatar'] ?? json['avatar_url'] ?? json['profile_pic'] ?? '').toString(),
       totalTrips: json['totalBookings'] is int ? json['totalBookings'] as int : int.tryParse(json['totalBookings']?.toString() ?? '0') ?? 0,
       totalSpent: "\$${json['totalSpent'] ?? '0.00'}",
-
+      walletBalance: double.tryParse(json['walletBalance']?.toString() ?? json['wallet_balance']?.toString() ?? '0') ?? 0.0,
       firstName: (json['first_name'] ?? json['firstName'] ?? '').toString(),
       lastName: (json['last_name'] ?? json['lastName'] ?? '').toString(),
       nickname: (json['nickname'] ?? '').toString(),
-      bio: (json['description'] ?? json['bio'] ?? '').toString(),
       website: (json['url'] ?? json['website'] ?? '').toString(),
+      role: (json['role'] ?? '').toString(),
+      rating: double.tryParse(json['rating']?.toString() ?? '4.9') ?? 4.9,
     );
+
   }
 }
 
@@ -55,7 +70,6 @@ class UpdateProfileRequest {
   final String? nickname;
   final String? phone;
   final String? website;
-  final String? bio;
 
   UpdateProfileRequest({
     this.firstName,
@@ -64,7 +78,6 @@ class UpdateProfileRequest {
     this.nickname,
     this.phone,
     this.website,
-    this.bio,
   });
 
   Map<String, dynamic> toJson() {
@@ -75,7 +88,6 @@ class UpdateProfileRequest {
       if (nickname != null) 'nickname': nickname,
       if (phone != null) 'phone': phone,
       if (website != null) 'url': website,
-      if (bio != null) 'description': bio,
     };
   }
 }
@@ -247,6 +259,35 @@ class ChangePasswordResponse {
     return ChangePasswordResponse(
       success: json['success'] as bool? ?? false,
       message: json['message'] as String? ?? '',
+    );
+  }
+}
+
+class WalletTransaction {
+  final String id;
+  final String title;
+  final String description;
+  final double amount;
+  final DateTime date;
+  final bool isCredit;
+
+  WalletTransaction({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.amount,
+    required this.date,
+    required this.isCredit,
+  });
+
+  factory WalletTransaction.fromJson(Map<String, dynamic> json) {
+    return WalletTransaction(
+      id: json['id']?.toString() ?? '',
+      title: json['title']?.toString() ?? '',
+      description: json['description']?.toString() ?? '',
+      amount: double.tryParse(json['amount']?.toString() ?? '0') ?? 0.0,
+      date: DateTime.parse(json['created_at']?.toString() ?? DateTime.now().toIso8601String()),
+      isCredit: json['is_credit'] as bool? ?? false,
     );
   }
 }

@@ -46,11 +46,38 @@ class HomeSettings {
   }
 
   factory HomeSettings.fromJson(Map<String, dynamic> json) {
+    // Safe parsing helper for enums
+    List<HomeSection> safeParseSections(List? items) {
+      if (items == null) return HomeSettings.defaultSettings().sections;
+      return items
+          .map((e) {
+            try {
+              return HomeSection.values.byName(e.toString());
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<HomeSection>()
+          .toList();
+    }
+
+    Map<HomeSection, bool> safeParseVisibility(Map? vis) {
+      if (vis == null) return HomeSettings.defaultSettings().visibility;
+      final result = <HomeSection, bool>{};
+      vis.forEach((k, v) {
+        try {
+          final section = HomeSection.values.byName(k.toString());
+          result[section] = v as bool;
+        } catch (_) {
+          // Skip invalid ones
+        }
+      });
+      return result.isEmpty ? HomeSettings.defaultSettings().visibility : result;
+    }
+
     return HomeSettings(
-      sections: (json['sections'] as List).map((e) => HomeSection.values.byName(e)).toList(),
-      visibility: (json['visibility'] as Map<String, dynamic>).map(
-        (k, v) => MapEntry(HomeSection.values.byName(k), v as bool),
-      ),
+      sections: safeParseSections(json['sections'] as List?),
+      visibility: safeParseVisibility(json['visibility'] as Map?),
     );
   }
 

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
+import '../widgets/app_dialog.dart';
 import 'change_password_view_model.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
@@ -32,74 +34,151 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
   @override
   Widget build(BuildContext context) {
     final viewModelState = ref.watch(changePasswordViewModelProvider);
+    const Color brandYellow = Color(0xFFDC423D);
 
     ref.listen(changePasswordViewModelProvider, (previous, next) {
       if (next is AsyncError) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(next.error.toString()), backgroundColor: Colors.red),
+        AppDialog.show(
+          context: context,
+          type: DialogType.error,
+          title: 'Update Failed',
+          message: next.error.toString(),
         );
       } else if (next is AsyncData && previous is AsyncLoading) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password changed successfully!'), backgroundColor: Colors.green),
+        AppDialog.show(
+          context: context,
+          type: DialogType.success,
+          title: 'Success',
+          message: 'Password changed successfully!',
+          autoDismissDuration: const Duration(seconds: 2),
+          onPrimaryPressed: () {
+            Navigator.pop(context); // Close dialog
+            context.pop(); // Go back
+          },
         );
-        Navigator.pop(context);
       }
     });
 
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.white,
         elevation: 0,
+        leadingWidth: 80.w,
+        leading: GestureDetector(
+          onTap: () => context.pop(),
+          child: Row(
+            children: [
+              SizedBox(width: 20.w),
+              Icon(Icons.arrow_back_ios, color: Colors.black87, size: 18.sp),
+              Text(
+                'Back',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
+        title: Text(
+          'Change Password',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        centerTitle: true,
       ),
       body: SingleChildScrollView(
         padding: EdgeInsets.all(20.w),
         child: Form(
           key: _formKey,
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Update Security',
-                style: TextStyle(color: Theme.of(context).textTheme.titleMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 24.h),
-              _PasswordTextField(
-                label: 'Current Password',
+              SizedBox(height: 20.h),
+              _buildPasswordField(
+                hint: 'Old Password',
                 controller: _currentPasswordController,
-                obscureText: !_currentPasswordVisible,
-                onToggleVisibility: () => setState(() => _currentPasswordVisible = !_currentPasswordVisible),
+                visible: _currentPasswordVisible,
+                onToggle: () => setState(() => _currentPasswordVisible = !_currentPasswordVisible),
               ),
               SizedBox(height: 16.h),
-              _PasswordTextField(
-                label: 'New Password',
+              _buildPasswordField(
+                hint: 'New Password',
                 controller: _newPasswordController,
-                obscureText: !_newPasswordVisible,
-                onToggleVisibility: () => setState(() => _newPasswordVisible = !_newPasswordVisible),
+                visible: _newPasswordVisible,
+                onToggle: () => setState(() => _newPasswordVisible = !_newPasswordVisible),
               ),
               SizedBox(height: 16.h),
-              _PasswordTextField(
-                label: 'Confirm New Password',
+              _buildPasswordField(
+                hint: 'Confirm Password',
                 controller: _confirmPasswordController,
-                obscureText: !_confirmPasswordVisible,
-                onToggleVisibility: () => setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
+                visible: _confirmPasswordVisible,
+                onToggle: () => setState(() => _confirmPasswordVisible = !_confirmPasswordVisible),
               ),
               SizedBox(height: 32.h),
-              ElevatedButton(
-                onPressed: viewModelState is AsyncLoading ? null : _changePassword,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.secondary,
-                  foregroundColor: viewModelState is AsyncLoading ? Theme.of(context).textTheme.bodySmall?.color?.withOpacity(0.5) : Theme.of(context).colorScheme.onSecondary,
-                  minimumSize: Size(double.infinity, 54.h),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18.r)),
+              SizedBox(
+                width: double.infinity,
+                height: 54.h,
+                child: ElevatedButton(
+                  onPressed: viewModelState is AsyncLoading ? null : _changePassword,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: brandYellow,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
+                  ),
+                  child: viewModelState is AsyncLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : Text('Save', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
                 ),
-                child: viewModelState is AsyncLoading
-                    ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary)
-                    : Text('Change Password', style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.bold)),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPasswordField({
+    required String hint,
+    required TextEditingController controller,
+    required bool visible,
+    required VoidCallback onToggle,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: Colors.grey[300]!),
+      ),
+      child: TextFormField(
+        controller: controller,
+        obscureText: !visible,
+        style: TextStyle(fontSize: 15.sp, fontWeight: FontWeight.w500),
+        decoration: InputDecoration(
+          hintText: hint,
+          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 15.sp),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+          suffixIcon: IconButton(
+            icon: Icon(
+              visible ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+              color: Colors.black38,
+              size: 20.sp,
+            ),
+            onPressed: onToggle,
+          ),
+        ),
+        validator: (value) {
+          if (value == null || value.isEmpty) {
+            return 'Please enter $hint';
+          }
+          return null;
+        },
       ),
     );
   }
@@ -112,62 +191,5 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             confirmPassword: _confirmPasswordController.text,
           );
     }
-  }
-}
-
-class _PasswordTextField extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final bool obscureText;
-  final VoidCallback onToggleVisibility;
-
-  const _PasswordTextField({
-    required this.label,
-    required this.controller,
-    required this.obscureText,
-    required this.onToggleVisibility,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp),
-        ),
-        SizedBox(height: 4.h),
-        TextFormField(
-          controller: controller,
-          obscureText: obscureText,
-          decoration: InputDecoration(
-            prefixIcon: Icon(Icons.lock_outline, color: Theme.of(context).colorScheme.secondary, size: 18.w),
-            suffixIcon: IconButton(
-              icon: Icon(
-                obscureText ? Icons.visibility_off_outlined : Icons.visibility_outlined,
-                color: Theme.of(context).colorScheme.secondary,
-                size: 18.w,
-              ),
-              onPressed: onToggleVisibility,
-            ),
-            filled: true,
-            fillColor: AppColors.lightGray,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12.r),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-          ),
-          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w500),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter your password';
-            }
-            return null;
-          },
-        ),
-      ],
-    );
   }
 }

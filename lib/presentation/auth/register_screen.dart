@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../../data/models/auth_models.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/utils/error_handler.dart';
+import '../widgets/app_dialog.dart';
+import '../widgets/phone_field.dart';
+import '../../core/utils/countries.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
   const RegisterScreen({super.key});
@@ -19,41 +23,30 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
-  bool _isLoading = false;
-  bool _passwordVisible = false;
-  bool _confirmPasswordVisible = false;
+  final _phoneController = TextEditingController();
+  final _referralController = TextEditingController();
 
-  void _register() async {
-    FocusScope.of(context).unfocus();
-    
-    if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Passwords do not match', style: TextStyle(color: AppColors.white)), backgroundColor: Colors.red)
-      );
-      return;
-    }
-    
-    setState(() => _isLoading = true);
-    
-    final request = RegisterRequest(
-      name: _nameController.text.trim(),
-      email: _emailController.text.trim(),
-      password: _passwordController.text,
-    );
-    
-    try {
-      final repo = ref.read(authRepositoryProvider);
-      final response = await repo.register(request);
-      if (response.success && mounted) {
-        context.go('/home');
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(response.message, style: TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
-      }
-    } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString(), style: TextStyle(color: AppColors.white)), backgroundColor: Colors.red));
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+  final _nameFocus = FocusNode();
+  final _emailFocus = FocusNode();
+  final _passwordFocus = FocusNode();
+  final _confirmFocus = FocusNode();
+  final _phoneFocus = FocusNode();
+  final _referralFocus = FocusNode();
+
+  bool _isLoading = false;
+  bool _isDriver = false;
+  String? _selectedGender;
+  final List<String> _genders = ['Male', 'Female', 'Other', 'Prefer not to say'];
+
+  @override
+  void initState() {
+    super.initState();
+    _nameFocus.addListener(() => setState(() {}));
+    _emailFocus.addListener(() => setState(() {}));
+    _passwordFocus.addListener(() => setState(() {}));
+    _confirmFocus.addListener(() => setState(() {}));
+    _phoneFocus.addListener(() => setState(() {}));
+    _referralFocus.addListener(() => setState(() {}));
   }
 
   @override
@@ -62,147 +55,573 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _phoneController.dispose();
+    _referralController.dispose();
+    _nameFocus.dispose();
+    _emailFocus.dispose();
+    _passwordFocus.dispose();
+    _confirmFocus.dispose();
+    _phoneFocus.dispose();
+    _referralFocus.dispose();
     super.dispose();
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String iconAsset,
-    bool isPassword = false,
-    bool isConfirmPassword = false,
-    TextInputType keyboardType = TextInputType.text,
-  }) {
-    bool obscure = false;
-    if (isPassword) {
-      obscure = !_passwordVisible;
-    } else if (isConfirmPassword) {
-      obscure = !_confirmPasswordVisible;
+  void _register() async {
+    FocusScope.of(context).unfocus();
+
+    if (_passwordController.text != _confirmPasswordController.text) {
+      _showDialog('Passwords do not match');
+      return;
     }
-    
-    return TextField(
-      controller: controller,
-      obscureText: obscure,
-      keyboardType: keyboardType,
-      style: const TextStyle(color: AppColors.white),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color?.withValues(alpha: 0.6)),
-        filled: true,
-        fillColor: AppColors.inputFillColor,
-        prefixIcon: Padding(
-          padding: EdgeInsets.all(12.w),
-          child: SvgPicture.asset(iconAsset, colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn), width: 24.w, height: 24.w),
-        ),
-        suffixIcon: (isPassword || isConfirmPassword) ? IconButton(
-          icon: SvgPicture.asset(
-            (isPassword ? _passwordVisible : _confirmPasswordVisible) 
-                ? 'assets/icons/ic_eye.svg' 
-                : 'assets/icons/ic_eye_off.svg',
-            colorFilter: ColorFilter.mode(Theme.of(context).colorScheme.secondary, BlendMode.srcIn),
-            width: 24.w, height: 24.w,
-          ),
-          onPressed: () {
-            setState(() {
-              if (isPassword) {
-                _passwordVisible = !_passwordVisible;
-              } else {
-                _confirmPasswordVisible = !_confirmPasswordVisible;
-              }
-            });
-          },
-        ) : null,
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8.r),
-          borderSide: const BorderSide(color: Colors.white24),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12.r),
-          borderSide: BorderSide(color: Theme.of(context).colorScheme.secondary, width: 2),
-        ),
-      ),
+
+    setState(() => _isLoading = true);
+
+    final request = RegisterRequest(
+      name: _nameController.text.trim(),
+      username: _emailController.text.trim(),
+      email: _emailController.text.trim(),
+      password: _passwordController.text,
+      role: _isDriver ? 'driver' : 'user',
+      referralCode: _referralController.text.trim().isEmpty ? null : _referralController.text.trim(),
+    );
+
+    try {
+      final repo = ref.read(authRepositoryProvider);
+      final response = await repo.register(request);
+      if (response.success && mounted) {
+        final msg = response.message.toLowerCase().contains('verification required')
+            ? 'Membership request sent. Please verify your email.'
+            : 'Welcome to Rockies Royal. Please login to continue.';
+        _showDialog(msg, isSuccess: true);
+      } else if (mounted) {
+        _showDialog(response.message);
+      }
+    } catch (e) {
+      if (mounted) _showDialog(e);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showDialog(dynamic error, {bool isSuccess = false}) {
+    final String message =
+        isSuccess ? error.toString() : ErrorHandler.getReadableError(error);
+    AppDialog.show(
+      context: context,
+      type: isSuccess ? DialogType.success : DialogType.error,
+      title: isSuccess ? 'Success' : 'Registration Error',
+      message: message,
+      primaryButtonText: isSuccess ? 'Sign In' : 'Try Again',
+      onPrimaryPressed: () {
+        Navigator.pop(context);
+        if (isSuccess) context.go('/login');
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          Image.network(
-            'https://storage.googleapis.com/uxpilot-auth.appspot.com/95454c7c78-e74374d6e8bc6d12792c.png',
-            fit: BoxFit.cover,
-            errorBuilder: (context, error, stackTrace) => Container(color: Theme.of(context).colorScheme.primary), // fallback
-          ),
-          Container(color: Colors.black.withValues(alpha: 0.6)), // Overlay
-          SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                    child: IntrinsicHeight(
-                      child: Padding(
-                        padding: EdgeInsets.all(24.w),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Spacer(),
-                            Text('Create Account', style: TextStyle(fontSize: 28.sp, fontWeight: FontWeight.bold, color: AppColors.white), textAlign: TextAlign.center),
-                            SizedBox(height: 8.h),
-                            Text('Sign up to get started', style: TextStyle(fontSize: 14.sp, color: Colors.white70), textAlign: TextAlign.center),
-                            SizedBox(height: 48.h),
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: Column(
+          children: [
+            // ── Back Button ─────────────────────────────────
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () => context.pop(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.arrow_back_ios_new,
+                          size: 18.sp, color: AppColors.black),
+                      SizedBox(width: 6.w),
+                      Text(
+                        'Back',
+                        style: GoogleFonts.outfit(
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
 
-                            _buildTextField(controller: _nameController, label: 'Name', iconAsset: 'assets/icons/ic_user.svg'),
-                            SizedBox(height: 16.h),
-                            _buildTextField(controller: _emailController, label: 'Email', iconAsset: 'assets/icons/ic_email.svg', keyboardType: TextInputType.emailAddress),
-                            SizedBox(height: 16.h),
-                            _buildTextField(controller: _passwordController, label: 'Password', iconAsset: 'assets/icons/ic_lock.svg', isPassword: true),
-                            SizedBox(height: 16.h),
-                            _buildTextField(controller: _confirmPasswordController, label: 'Confirm Password', iconAsset: 'assets/icons/ic_lock.svg', isConfirmPassword: true),
-                            
-                            SizedBox(height: 40.h),
+            // ── Scrollable body ─────────────────────────────
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(horizontal: 24.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(height: 12.h),
 
-                            _isLoading 
-                              ? Center(child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary))
-                              : ElevatedButton(
-                                  onPressed: _register,
-                                  style: ElevatedButton.styleFrom(
-                                    padding: EdgeInsets.symmetric(vertical: 16.h),
-                                    backgroundColor: Theme.of(context).colorScheme.secondary,
-                                    foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                                  ),
-                                  child: Text('Register', style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
-                                ),
-                            SizedBox(height: 24.h),
-                  
-                            FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text("Already have an account? ", style: TextStyle(color: Colors.white70, fontSize: 14.sp)),
-                                  GestureDetector(
-                                    onTap: () => context.pop(), // pop back to login
-                                    child: Text('Login', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.bold, fontSize: 14.sp)),
-                                  )
-                                ],
+                    // Title
+                    Text(
+                      'Sign up',
+                      style: GoogleFonts.outfit(
+                        fontSize: 30.sp,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.black,
+                      ),
+                    ),
+
+                    SizedBox(height: 20.h),
+                    _buildRoleToggle(),
+                    SizedBox(height: 24.h),
+
+                    // Name
+                    _FocusField(
+                      controller: _nameController,
+                      focusNode: _nameFocus,
+                      hintText: 'Name',
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // Email
+                    _FocusField(
+                      controller: _emailController,
+                      focusNode: _emailFocus,
+                      hintText: 'Email',
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // Phone Number
+                    AppPhoneField(
+                      controller: _phoneController,
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // Password
+                    _FocusField(
+                      controller: _passwordController,
+                      focusNode: _passwordFocus,
+                      hintText: 'Password',
+                      isPassword: true,
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // Confirm Password
+                    _FocusField(
+                      controller: _confirmPasswordController,
+                      focusNode: _confirmFocus,
+                      hintText: 'Confirm Password',
+                      isPassword: true,
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // Referral Code
+                    _FocusField(
+                      controller: _referralController,
+                      focusNode: _referralFocus,
+                      hintText: 'Referral Code (Optional)',
+                    ),
+
+                    SizedBox(height: 16.h),
+
+                    // Gender Dropdown
+                    _GenderDropdown(
+                      value: _selectedGender,
+                      onChanged: (val) => setState(() => _selectedGender = val),
+                      genders: _genders,
+                    ),
+
+                    SizedBox(height: 20.h),
+
+                    // Terms
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.check_circle_rounded,
+                            color: AppColors.gold, size: 20.sp),
+                        SizedBox(width: 10.w),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              text: 'By signing up, you agree to the ',
+                              style: GoogleFonts.outfit(
+                                color: AppColors.mediumGray,
+                                fontSize: 13.sp,
                               ),
+                              children: [
+                                TextSpan(
+                                  text: 'Terms of service',
+                                  style: GoogleFonts.outfit(
+                                    color: AppColors.gold,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                TextSpan(
+                                  text: ' and ',
+                                  style: GoogleFonts.outfit(
+                                      color: AppColors.mediumGray),
+                                ),
+                                TextSpan(
+                                  text: 'Privacy policy.',
+                                  style: GoogleFonts.outfit(
+                                    color: AppColors.gold,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
-                            const Spacer(),
-                          ],
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    SizedBox(height: 28.h),
+
+                    // Sign Up Button
+                    _isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                                color: AppColors.gold))
+                        : _SignUpButton(onTap: _register),
+
+                    SizedBox(height: 28.h),
+
+                    // Divider
+                    Row(
+                      children: [
+                        Expanded(
+                            child: Divider(
+                                color: AppColors.lightGray, thickness: 0.8)),
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 14.w),
+                          child: Text('or',
+                              style: GoogleFonts.outfit(
+                                  color: AppColors.mediumGray,
+                                  fontSize: 14.sp)),
+                        ),
+                        Expanded(
+                            child: Divider(
+                                color: AppColors.lightGray, thickness: 0.8)),
+                      ],
+                    ),
+
+                    SizedBox(height: 24.h),
+
+                    // Google Button
+                    Center(
+                      child: _GoogleButton(onTap: () {}),
+                    ),
+
+                    SizedBox(height: 32.h),
+
+                    // Sign In Footer
+                    Center(
+                      child: GestureDetector(
+                        onTap: () => context.pop(),
+                        child: RichText(
+                          text: TextSpan(
+                            text: 'Already have an account? ',
+                            style: GoogleFonts.outfit(
+                              color: AppColors.black,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w400,
+                            ),
+                            children: [
+                              TextSpan(
+                                text: 'Sign in',
+                                style: GoogleFonts.outfit(
+                                  color: AppColors.gold,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              },
+
+                    SizedBox(height: 32.h),
+                  ],
+                ),
+              ),
             ),
-          )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRoleToggle() {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFF5F5F5),
+        borderRadius: BorderRadius.circular(12.r),
+      ),
+      padding: EdgeInsets.all(4.w),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isDriver = false),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: !_isDriver ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10.r),
+                  boxShadow: !_isDriver
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
+                ),
+                padding: EdgeInsets.symmetric(vertical: 10.h),
+                alignment: Alignment.center,
+                child: Text(
+                  'Passenger',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14.sp,
+                    fontWeight: !_isDriver ? FontWeight.w600 : FontWeight.w500,
+                    color: !_isDriver ? AppColors.black : AppColors.mediumGray,
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _isDriver = true),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: _isDriver ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10.r),
+                  boxShadow: _isDriver
+                      ? [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          )
+                        ]
+                      : null,
+                ),
+                padding: EdgeInsets.symmetric(vertical: 10.h),
+                alignment: Alignment.center,
+                child: Text(
+                  'Chauffeur',
+                  style: GoogleFonts.outfit(
+                    fontSize: 14.sp,
+                    fontWeight: _isDriver ? FontWeight.w600 : FontWeight.w500,
+                    color: _isDriver ? AppColors.black : AppColors.mediumGray,
+                  ),
+                ),
+              ),
+            ),
+          ),
         ],
+      ),
+    );
+  }
+}
+
+// ── Focus-aware Input Field ────────────────────────────────────────────────
+
+class _FocusField extends StatefulWidget {
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final String hintText;
+  final bool isPassword;
+  final TextInputType keyboardType;
+
+  const _FocusField({
+    required this.controller,
+    required this.focusNode,
+    required this.hintText,
+    this.isPassword = false,
+    this.keyboardType = TextInputType.text,
+  });
+
+  @override
+  State<_FocusField> createState() => _FocusFieldState();
+}
+
+class _FocusFieldState extends State<_FocusField> {
+  bool _isFocused = false;
+  bool _obscure = true;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.focusNode.addListener(_onFocus);
+  }
+
+  void _onFocus() => setState(() => _isFocused = widget.focusNode.hasFocus);
+
+  @override
+  void dispose() {
+    widget.focusNode.removeListener(_onFocus);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(
+          color: _isFocused ? AppColors.gold : const Color(0xFFE0E0E0),
+          width: _isFocused ? 1.5 : 1.0,
+        ),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+      child: TextField(
+        controller: widget.controller,
+        focusNode: widget.focusNode,
+        keyboardType: widget.keyboardType,
+        obscureText: widget.isPassword && _obscure,
+        style: GoogleFonts.outfit(color: AppColors.black, fontSize: 15.sp),
+        decoration: InputDecoration(
+          hintText: widget.hintText,
+          hintStyle: GoogleFonts.outfit(
+              color: const Color(0xFFBDBDBD), fontSize: 15.sp),
+          border: InputBorder.none,
+          enabledBorder: InputBorder.none,
+          focusedBorder: InputBorder.none,
+          disabledBorder: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.symmetric(vertical: 14.h),
+          suffixIcon: widget.isPassword
+              ? IconButton(
+                  icon: Icon(
+                    _obscure
+                        ? Icons.visibility_off_outlined
+                        : Icons.visibility_outlined,
+                    color: _isFocused
+                        ? AppColors.gold
+                        : const Color(0xFFBDBDBD),
+                    size: 20.sp,
+                  ),
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+}
+
+
+// ── Gender Dropdown ────────────────────────────────────────────────────────
+
+class _GenderDropdown extends StatelessWidget {
+  final String? value;
+  final List<String> genders;
+  final ValueChanged<String?> onChanged;
+
+  const _GenderDropdown({
+    required this.value,
+    required this.genders,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: const Color(0xFFE0E0E0)),
+      ),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: value,
+          isExpanded: true,
+          hint: Text(
+            'Gender',
+            style: GoogleFonts.outfit(
+                color: const Color(0xFFBDBDBD), fontSize: 15.sp),
+          ),
+          icon: Icon(Icons.keyboard_arrow_down_rounded,
+              color: const Color(0xFFBDBDBD), size: 22.sp),
+          style: GoogleFonts.outfit(color: AppColors.black, fontSize: 15.sp),
+          items: genders.map((g) {
+            return DropdownMenuItem(
+              value: g,
+              child: Text(g),
+            );
+          }).toList(),
+          onChanged: onChanged,
+        ),
+      ),
+    );
+  }
+}
+
+// ── Sign Up Button ─────────────────────────────────────────────────────────
+
+class _SignUpButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _SignUpButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        height: 56.h,
+        decoration: BoxDecoration(
+          color: AppColors.gold,
+          borderRadius: BorderRadius.circular(14.r),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          'Sign Up',
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontSize: 17.sp,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Google Button ──────────────────────────────────────────────────────────
+
+class _GoogleButton extends StatelessWidget {
+  final VoidCallback onTap;
+  const _GoogleButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.all(14.w),
+        decoration: BoxDecoration(
+          border: Border.all(color: const Color(0xFFE0E0E0)),
+          borderRadius: BorderRadius.circular(12.r),
+        ),
+        child: Image.asset(
+          'assets/images/google.png',
+          width: 24.w,
+          height: 24.w,
+          fit: BoxFit.contain,
+        ),
       ),
     );
   }

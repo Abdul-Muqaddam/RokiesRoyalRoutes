@@ -7,7 +7,7 @@ part of 'personal_information_view_model.dart';
 // **************************************************************************
 
 String _$personalInformationViewModelHash() =>
-    r'bdf5ffe87e2aef562df2d049276681c1ce124031';
+    r'41a196334e500b140a38d4670c13e2ad66ae15de';
 
 /// See also [PersonalInformationViewModel].
 @ProviderFor(PersonalInformationViewModel)

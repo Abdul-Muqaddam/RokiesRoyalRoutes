@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
+import '../../data/models/booking_models.dart';
 import 'booking_view_model.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -82,7 +83,7 @@ class BookingSuccessScreen extends ConsumerWidget {
 
 class _SuccessHeader extends StatelessWidget {
   final String firstName;
-  final int? bookingId;
+  final String? bookingId;
   const _SuccessHeader({required this.firstName, this.bookingId});
 
   @override
@@ -121,7 +122,8 @@ class _SuccessHeader extends StatelessWidget {
           if (bookingId != null) ...[
             SizedBox(height: 16.h),
             Text(
-              'Ref: #$bookingId',
+              'Ref: #${bookingId!.length > 8 ? bookingId!.substring(0, 8) : bookingId}',
+              textAlign: TextAlign.center,
               style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 14.sp),
             ),
           ],
@@ -172,7 +174,7 @@ class _RideDetailsCard extends StatelessWidget {
             ],
           ),
           SizedBox(height: 24.h),
-          _RouteIndicator(pickup: state.pickupLocation, destination: state.destination),
+          _RouteIndicator(pickup: cleanLocationName(state.pickupLocation), destination: cleanLocationName(state.destination)),
           SizedBox(height: 24.h),
           const Divider(),
           SizedBox(height: 16.h),

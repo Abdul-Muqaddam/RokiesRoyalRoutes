@@ -46,11 +46,38 @@ class ProfileSettings {
   }
 
   factory ProfileSettings.fromJson(Map<String, dynamic> json) {
+    // Safe parsing helper for enums
+    List<ProfileSection> safeParseSections(List? items) {
+      if (items == null) return ProfileSettings.defaultSettings().sections;
+      return items
+          .map((e) {
+            try {
+              return ProfileSection.values.byName(e.toString());
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<ProfileSection>()
+          .toList();
+    }
+
+    Map<ProfileSection, bool> safeParseVisibility(Map? vis) {
+      if (vis == null) return ProfileSettings.defaultSettings().visibility;
+      final result = <ProfileSection, bool>{};
+      vis.forEach((k, v) {
+        try {
+          final section = ProfileSection.values.byName(k.toString());
+          result[section] = v as bool;
+        } catch (_) {
+          // Skip invalid ones
+        }
+      });
+      return result.isEmpty ? ProfileSettings.defaultSettings().visibility : result;
+    }
+
     return ProfileSettings(
-      sections: (json['sections'] as List).map((e) => ProfileSection.values.byName(e)).toList(),
-      visibility: (json['visibility'] as Map<String, dynamic>).map(
-        (k, v) => MapEntry(ProfileSection.values.byName(k), v as bool),
-      ),
+      sections: safeParseSections(json['sections'] as List?),
+      visibility: safeParseVisibility(json['visibility'] as Map?),
     );
   }
 

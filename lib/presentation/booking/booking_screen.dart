@@ -5,9 +5,12 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../data/models/user_models.dart';
+import '../widgets/app_dialog.dart';
 import 'booking_view_model.dart';
-import 'payment_webview.dart';
 import '../../data/models/booking_settings.dart';
+import '../../data/models/booking_models.dart';
+import '../../data/repositories/user_repository_impl.dart';
+import '../widgets/phone_field.dart';
 
 class BookingScreen extends ConsumerStatefulWidget {
   const BookingScreen({super.key});
@@ -39,34 +42,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
 
       if (state.bookingStatus?.success == true && !state.requiresPayment) {
         context.go('/booking-success');
-      } else if (state.requiresPayment && state.checkoutUrl != null) {
-        final bookingId = state.bookingStatus?.bookingId ?? 0;
-        
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => PaymentWebView(
-              url: state.checkoutUrl!,
-              bookingId: bookingId,
-              paymentType: state.paymentType ?? 'stripe',
-              onSuccess: (code, bId) {
-                Navigator.pop(context); // Close WebView
-                if (state.paymentType == 'stripe') {
-                  ref.read(bookingViewModelProvider.notifier).onStripeSuccess(code, bId);
-                } else {
-                  ref.read(bookingViewModelProvider.notifier).onPayPalSuccess(code, bId);
-                }
-              },
-              onCancel: () {
-                Navigator.pop(context); // Close WebView
-                ref.read(bookingViewModelProvider.notifier).cancelPayment();
-              },
-            ),
-          ),
-        );
       } else if (state.error != null && state.error != previous?.value?.error) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(state.error!), backgroundColor: Colors.red),
+        AppDialog.show(
+          context: context,
+          title: 'Booking Error',
+          message: state.error!,
         );
       }
     });
@@ -75,9 +55,22 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     if (state == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
 
     final bookingSettings = ref.watch(bookingSettingsProvider);
-    final enabledSteps = bookingSettings.steps
-        .where((step) => bookingSettings.visibility[step] ?? true)
-        .toList();
+    // Determine steps dynamically based on the booking type
+    final enabledSteps = bookingSettings.steps.where((step) {
+      // Step 1: Locations - Removed because we ask on Home screen
+      if (step == BookingStep.locations) return false;
+      
+      // Step 2: Time - Only shown if user chose "Book later"
+      if (step == BookingStep.time) return state.pickupTimeType == 'SCHEDULE';
+      
+      // Step 3: Vehicle - Removed because we ask on AvailableCars/Details
+      if (step == BookingStep.vehicle) return false;
+      
+      // Step 4: Summary - Always shown
+      return true;
+    }).toList();
+
+    final isLastStep = state.currentStep == enabledSteps.length - 1;
 
     // Synchronize page controller with state
     if (_pageController.hasClients && _pageController.page?.toInt() != state.currentStep) {
@@ -96,7 +89,7 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
         backgroundColor: AppColors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Theme.of(context).textTheme.bodyMedium?.color),
+          icon: Icon(Icons.arrow_back_ios, color: Colors.black87, size: 20.sp),
           onPressed: () {
             if (state.currentStep > 0) {
               ref.read(bookingViewModelProvider.notifier).prevStep();
@@ -106,14 +99,14 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
           },
         ),
         title: Text(
-          'Book a Ride',
-          style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontWeight: FontWeight.bold, fontSize: 18.sp),
+          isLastStep ? 'Request for rent' : 'Book a Ride',
+          style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18.sp),
         ),
         centerTitle: true,
       ),
       body: Column(
         children: [
-          _buildStepIndicator(state.currentStep, enabledSteps),
+          if (!isLastStep) _buildStepIndicator(state.currentStep, enabledSteps),
           Expanded(
             child: PageView(
               controller: _pageController,
@@ -192,10 +185,11 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
     bool isEnabled = true;
     if (currentStepType == BookingStep.locations) {
       isEnabled = state.pickupLocation.isNotEmpty && 
-                  state.destination.isNotEmpty && 
-                  (state.distance != null || state.isFlightMode == true);
+                  state.destination.isNotEmpty;
     } else if (currentStepType == BookingStep.vehicle) {
       isEnabled = state.selectedVehicle != null;
+    } else if (currentStepType == BookingStep.summary) {
+      isEnabled = true;
     }
 
     return Container(
@@ -209,24 +203,70 @@ class _BookingScreenState extends ConsumerState<BookingScreen> {
       child: SafeArea(
         top: false,
         child: ElevatedButton(
-          onPressed: isEnabled ? () {
+          onPressed: isEnabled ? () async {
             if (!isLastStep) {
-              ref.read(bookingViewModelProvider.notifier).nextStep(enabledSteps.length);
+              await ref.read(bookingViewModelProvider.notifier).nextStep(enabledSteps.length);
             } else {
-              ref.read(bookingViewModelProvider.notifier).createBooking();
+              // Perform validation for the last step
+              final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+              if (state.firstName.trim().isEmpty) {
+                _showValidationError(context, 'Please enter your name');
+                return;
+              }
+              if (state.email.trim().isEmpty || !emailRegex.hasMatch(state.email.trim())) {
+                _showValidationError(context, 'Please enter a valid email address');
+                return;
+              }
+              if (state.phone.trim().isEmpty) {
+                _showValidationError(context, 'Please enter your phone number');
+                return;
+              }
+              if (state.paymentMethod.isEmpty) {
+                _showValidationError(context, 'Please select a payment method');
+                return;
+              }
+              
+              if (state.paymentMethod.toLowerCase().contains('wallet')) {
+                final price = double.tryParse(state.selectedVehicle?.price?.toString() ?? '0') ?? 0.0;
+                context.push('/wallet-confirmation', extra: {
+                  'amount': price,
+                  'onConfirm': () {
+                    context.pop(); // Close confirmation screen
+                    ref.read(bookingViewModelProvider.notifier).createBooking(context: context);
+                  }
+                });
+                return;
+              }
+              
+              ref.read(bookingViewModelProvider.notifier).createBooking(context: context);
             }
           } : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: Theme.of(context).colorScheme.secondary,
-            foregroundColor: Theme.of(context).colorScheme.onSecondary,
+            backgroundColor: const Color(0xFFDC423D),
+            foregroundColor: Colors.white,
             minimumSize: Size(double.infinity, 56.h),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
             elevation: 0,
           ),
           child: state.isLoading 
-            ? CircularProgressIndicator(color: Theme.of(context).colorScheme.onSecondary)
+            ? SizedBox(
+                height: 20.h,
+                width: 20.h,
+                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+              )
             : Text(buttonText, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold)),
         ),
+      ),
+    );
+  }
+
+  void _showValidationError(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10.r)),
       ),
     );
   }
@@ -506,7 +546,7 @@ class _BookingStep1 extends ConsumerWidget {
     return Container(
       padding: EdgeInsets.symmetric(vertical: 20.h, horizontal: 16.w),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF9E7), // Very light gold
+        color: const Color(0xFFFFEBEA), // Very light red
         borderRadius: BorderRadius.circular(20.r),
         border: Border.all(color: Theme.of(context).colorScheme.secondary.withOpacity(0.2)),
       ),
@@ -597,6 +637,7 @@ class _LocationField extends StatefulWidget {
   final Function(String) onChanged;
   final List<Prediction> suggestions;
   final Function(Prediction) onSuggestionTap;
+  final String? errorText;
 
   const _LocationField({
     required this.label,
@@ -607,6 +648,7 @@ class _LocationField extends StatefulWidget {
     required this.onChanged,
     required this.suggestions,
     required this.onSuggestionTap,
+    this.errorText,
   });
 
   @override
@@ -615,6 +657,8 @@ class _LocationField extends StatefulWidget {
 
 class _LocationFieldState extends State<_LocationField> {
   late TextEditingController _controller;
+  final LayerLink _layerLink = LayerLink();
+  OverlayEntry? _overlayEntry;
 
   @override
   void initState() {
@@ -631,12 +675,85 @@ class _LocationFieldState extends State<_LocationField> {
         TextPosition(offset: _controller.text.length),
       );
     }
+    
+    if (oldWidget.suggestions != widget.suggestions) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _updateOverlay();
+      });
+    }
   }
 
   @override
   void dispose() {
+    _hideOverlay();
     _controller.dispose();
     super.dispose();
+  }
+
+  void _updateOverlay() {
+    _hideOverlay();
+    if (widget.suggestions.isNotEmpty) {
+      _showOverlay();
+    }
+  }
+
+  void _showOverlay() {
+    final overlay = Overlay.of(context);
+    
+    _overlayEntry = OverlayEntry(
+      builder: (context) => Positioned(
+        width: MediaQuery.of(context).size.width - 48.w, // Match SingleChildScrollView padding
+        child: CompositedTransformFollower(
+          link: _layerLink,
+          showWhenUnlinked: false,
+          offset: Offset(0, 56.h), // Position below text field
+          child: Material(
+            elevation: 8,
+            borderRadius: BorderRadius.circular(12.r),
+            color: Colors.transparent,
+            child: Container(
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                borderRadius: BorderRadius.circular(12.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1), 
+                    blurRadius: 10, 
+                    offset: const Offset(0, 4)
+                  )
+                ],
+                border: Border.all(color: Colors.grey.withOpacity(0.1)),
+              ),
+              constraints: BoxConstraints(maxHeight: 250.h),
+              child: ListView.builder(
+                padding: EdgeInsets.zero,
+                shrinkWrap: true,
+                itemCount: widget.suggestions.length,
+                itemBuilder: (context, index) {
+                  final s = widget.suggestions[index];
+                  return ListTile(
+                    visualDensity: VisualDensity.compact,
+                    title: Text(s.structuredFormatting.mainText, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
+                    subtitle: Text(s.description, style: TextStyle(fontSize: 11.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
+                    onTap: () {
+                      widget.onSuggestionTap(s);
+                      _hideOverlay();
+                    },
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(_overlayEntry!);
+  }
+
+  void _hideOverlay() {
+    _overlayEntry?.remove();
+    _overlayEntry = null;
   }
 
   @override
@@ -646,48 +763,37 @@ class _LocationFieldState extends State<_LocationField> {
       children: [
         Text(widget.label, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.w600)),
         SizedBox(height: 8.h),
-        TextField(
-          controller: _controller,
-          onChanged: widget.onChanged,
-          decoration: InputDecoration(
-            hintText: widget.hint,
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14.sp),
-            prefixIcon: Padding(
-              padding: EdgeInsets.all(12.w),
-              child: SvgPicture.asset(
-                widget.icon, 
-                width: 20.w,
-                height: 20.w,
-                colorFilter: ColorFilter.mode(widget.iconColor ?? Colors.grey, BlendMode.srcIn)
+        CompositedTransformTarget(
+          link: _layerLink,
+          child: TextField(
+            controller: _controller,
+            onChanged: (val) {
+              widget.onChanged(val);
+              // Ensure overlay updates after the frame to catch the new suggestions
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _updateOverlay();
+              });
+            },
+            decoration: InputDecoration(
+              hintText: widget.hint,
+              hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14.sp),
+              errorText: widget.errorText,
+              prefixIcon: Padding(
+                padding: EdgeInsets.all(12.w),
+                child: SvgPicture.asset(
+                  widget.icon, 
+                  width: 20.w,
+                  height: 20.w,
+                  colorFilter: ColorFilter.mode(widget.iconColor ?? Colors.grey, BlendMode.srcIn)
+                ),
               ),
+              filled: true,
+              fillColor: Colors.grey[50],
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide.none),
             ),
-            filled: true,
-            fillColor: Colors.grey[50],
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12.r), borderSide: BorderSide.none),
           ),
         ),
-        if (widget.suggestions.isNotEmpty)
-          Container(
-            margin: EdgeInsets.only(top: 4.h),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              borderRadius: BorderRadius.circular(12.r),
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 4, offset: const Offset(0, 2))],
-            ),
-            child: ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: widget.suggestions.length,
-              itemBuilder: (context, index) {
-                final s = widget.suggestions[index];
-                return ListTile(
-                  title: Text(s.structuredFormatting.mainText, style: TextStyle(fontSize: 13.sp, fontWeight: FontWeight.bold)),
-                  subtitle: Text(s.description, style: TextStyle(fontSize: 11.sp), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  onTap: () => widget.onSuggestionTap(s),
-                );
-              },
-            ),
-          ),
+        SizedBox(height: 16.h),
       ],
     );
   }
@@ -700,111 +806,186 @@ class _BookingStep2 extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final viewModel = ref.read(bookingViewModelProvider.notifier);
-    final settings = ref.watch(bookingSettingsProvider);
-    
-    final sections = settings.step2Order.where((s) => settings.step2Visibility[s] ?? true).toList();
+    const Color brandYellow = Color(0xFFDC423D);
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: sections.map((section) {
-          switch (section) {
-            case BookingStep2Section.timeType:
-              return Column(
-                key: const ValueKey('timeType'),
-                crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(height: 20.h),
+          Text(
+            'Schedule Ride',
+            style: TextStyle(color: Colors.black87, fontSize: 22.sp, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 8.h),
+          Text(
+            'When would you like to be picked up?',
+            style: TextStyle(color: Colors.black38, fontSize: 14.sp),
+          ),
+          SizedBox(height: 32.h),
+          
+          Text(
+            'Select Date',
+            style: TextStyle(color: Colors.black87, fontSize: 16.sp, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 16.h),
+          _PremiumDateSelector(
+            selectedDate: state.selectedDate,
+            onDateSelected: viewModel.updateDate,
+          ),
+          
+          SizedBox(height: 32.h),
+          Text(
+            'Select Time',
+            style: TextStyle(color: Colors.black87, fontSize: 16.sp, fontWeight: FontWeight.bold),
+          ),
+          SizedBox(height: 16.h),
+          _PremiumTimeGrid(
+            selectedTime: state.selectedTime,
+            onTimeSelected: viewModel.updateTime,
+          ),
+          
+          SizedBox(height: 24.h),
+          Center(
+            child: TextButton.icon(
+              onPressed: () async {
+                final time = await showTimePicker(
+                  context: context,
+                  initialTime: TimeOfDay.now(),
+                );
+                if (time != null) viewModel.updateTime(time.format(context));
+              },
+              icon: Icon(Icons.access_time, color: brandYellow),
+              label: Text(
+                'Choose custom time',
+                style: TextStyle(color: brandYellow, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+          SizedBox(height: 32.h),
+          _InfoBox(text: 'Your chauffeur will wait 15 mins for free at no extra charge'),
+          SizedBox(height: 40.h),
+        ],
+      ),
+    );
+  }
+}
+
+class _PremiumDateSelector extends StatelessWidget {
+  final DateTime selectedDate;
+  final Function(DateTime) onDateSelected;
+
+  const _PremiumDateSelector({required this.selectedDate, required this.onDateSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 90.h,
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        itemCount: 14, // Next 2 weeks
+        itemBuilder: (context, index) {
+          final date = DateTime.now().add(Duration(days: index));
+          final isSelected = date.day == selectedDate.day && date.month == selectedDate.month;
+          final dayName = index == 0 ? 'Today' : _getDayName(date.weekday);
+          
+          return GestureDetector(
+            onTap: () => onDateSelected(date),
+            child: Container(
+              width: 65.w,
+              margin: EdgeInsets.only(right: 12.w),
+              decoration: BoxDecoration(
+                color: isSelected ? const Color(0xFFDC423D) : Colors.grey[50],
+                borderRadius: BorderRadius.circular(16.r),
+                border: Border.all(color: isSelected ? const Color(0xFFDC423D) : Colors.grey[200]!),
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    'Pickup Time',
-                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp, fontWeight: FontWeight.bold),
+                    dayName,
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black38,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  SizedBox(height: 12.h),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _TimeTypeButton(
-                          text: 'Now',
-                          isSelected: state.pickupTimeType == 'NOW',
-                          onTap: () => viewModel.setPickupTimeType('NOW'),
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: _TimeTypeButton(
-                          text: 'Schedule',
-                          isSelected: state.pickupTimeType == 'SCHEDULE',
-                          onTap: () => viewModel.setPickupTimeType('SCHEDULE'),
-                        ),
-                      ),
-                    ],
+                  SizedBox(height: 4.h),
+                  Text(
+                    '${date.day}',
+                    style: TextStyle(
+                      color: isSelected ? Colors.white : Colors.black87,
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  SizedBox(height: 32.h),
                 ],
-              );
-            case BookingStep2Section.dateSelector:
-              return Column(
-                key: const ValueKey('dateSelector'),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (state.pickupTimeType == 'SCHEDULE') ...[
-                    Text(
-                      'Select Date',
-                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 12.h),
-                    _DateSelector(
-                      selectedDate: state.selectedDate,
-                      onDateSelected: viewModel.selectDate,
-                    ),
-                    SizedBox(height: 32.h),
-                  ],
-                ],
-              );
-            case BookingStep2Section.timeGrid:
-              return Column(
-                key: const ValueKey('timeGrid'),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                   if (state.pickupTimeType == 'SCHEDULE') ...[
-                    Text(
-                      'Select Time',
-                      style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 13.sp, fontWeight: FontWeight.bold),
-                    ),
-                    SizedBox(height: 12.h),
-                    _TimeGrid(
-                      selectedTime: state.selectedTime,
-                      onTimeSelected: viewModel.selectTime,
-                    ),
-                    SizedBox(height: 24.h),
-                  ],
-                ],
-              );
-            case BookingStep2Section.customTime:
-              return Column(
-                key: const ValueKey('customTime'),
-                children: [
-                  if (state.pickupTimeType == 'SCHEDULE') ...[
-                    _CustomTimeButton(
-                      selectedTime: state.selectedTime,
-                      onTimeSelected: viewModel.selectTime,
-                    ),
-                    SizedBox(height: 32.h),
-                  ],
-                ],
-              );
-            case BookingStep2Section.infoBox:
-              return Column(
-                key: const ValueKey('infoBox'),
-                children: [
-                  _InfoBox(text: 'Your chauffeur will wait 15 mins for free at no extra charge'),
-                  SizedBox(height: 32.h),
-                ],
-              );
-            default: return const SizedBox.shrink();
-          }
-        }).toList(),
+              ),
+            ),
+          );
+        },
       ),
+    );
+  }
+
+  String _getDayName(int weekday) {
+    switch (weekday) {
+      case 1: return 'Mon';
+      case 2: return 'Tue';
+      case 3: return 'Wed';
+      case 4: return 'Thu';
+      case 5: return 'Fri';
+      case 6: return 'Sat';
+      case 7: return 'Sun';
+      default: return '';
+    }
+  }
+}
+
+class _PremiumTimeGrid extends StatelessWidget {
+  final String selectedTime;
+  final Function(String) onTimeSelected;
+
+  const _PremiumTimeGrid({required this.selectedTime, required this.onTimeSelected});
+
+  @override
+  Widget build(BuildContext context) {
+    final times = ['08:00 AM', '09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM'];
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        mainAxisSpacing: 12.h,
+        crossAxisSpacing: 12.w,
+        childAspectRatio: 2.2,
+      ),
+      itemCount: times.length,
+      itemBuilder: (context, index) {
+        final time = times[index];
+        final isSelected = time == selectedTime;
+        return InkWell(
+          onTap: () => onTimeSelected(time),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isSelected ? const Color(0xFFDC423D) : Colors.white,
+              borderRadius: BorderRadius.circular(12.r),
+              border: Border.all(color: isSelected ? const Color(0xFFDC423D) : Colors.grey[200]!),
+              boxShadow: isSelected ? [BoxShadow(color: const Color(0xFFDC423D).withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))] : null,
+            ),
+            alignment: Alignment.center,
+            child: Text(
+              time,
+              style: TextStyle(
+                color: isSelected ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.bold,
+                fontSize: 13.sp,
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -1074,7 +1255,36 @@ class _BookingStep3 extends ConsumerWidget {
                                       borderRadius: BorderRadius.circular(10.r),
                                     ),
                                     padding: EdgeInsets.all(4.w),
-                                    child: Image.network(vehicle.imageUrl, fit: BoxFit.contain),
+                                    child: (vehicle.imageUrl.isEmpty || vehicle.imageUrl == "") 
+                                      ? Center(
+                                          child: Icon(
+                                            Icons.directions_car,
+                                            color: Colors.grey.shade400,
+                                            size: 24.w,
+                                          ),
+                                        )
+                                      : Image.network(
+                                          vehicle.imageUrl, 
+                                          fit: BoxFit.contain,
+                                          errorBuilder: (context, error, stackTrace) => Center(
+                                            child: Icon(
+                                              Icons.directions_car,
+                                              color: Colors.grey.shade400,
+                                              size: 24.w,
+                                            ),
+                                          ),
+                                          loadingBuilder: (context, child, loadingProgress) {
+                                            if (loadingProgress == null) return child;
+                                            return Center(
+                                              child: CircularProgressIndicator(
+                                                value: loadingProgress.expectedTotalBytes != null
+                                                    ? loadingProgress.cumulativeBytesLoaded / loadingProgress.expectedTotalBytes!
+                                                    : null,
+                                                strokeWidth: 2,
+                                              ),
+                                            );
+                                          },
+                                        ),
                                   ),
                                   SizedBox(width: 12.w),
                                   Expanded(
@@ -1162,163 +1372,531 @@ class _BookingStep3 extends ConsumerWidget {
     );
   }
 }
-class _BookingStep4 extends ConsumerWidget {
+class _BookingStep4 extends ConsumerStatefulWidget {
   final BookingState state;
   const _BookingStep4({required this.state});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_BookingStep4> createState() => _BookingStep4State();
+}
+
+class _BookingStep4State extends ConsumerState<_BookingStep4> {
+  late TextEditingController _nameController;
+  late TextEditingController _phoneController;
+  late TextEditingController _emailController;
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController(text: '${widget.state.firstName} ${widget.state.lastName}'.trim());
+    _phoneController = TextEditingController(text: widget.state.phone);
+    _emailController = TextEditingController(text: widget.state.email);
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _phoneController.dispose();
+    _emailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const Color brandYellow = Color(0xFFDC423D);
     final viewModel = ref.read(bookingViewModelProvider.notifier);
-    final settings = ref.watch(bookingSettingsProvider);
-    
-    final sections = settings.step4Order.where((s) => settings.step4Visibility[s] ?? true).toList();
+    final state = widget.state;
 
     return SingleChildScrollView(
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: sections.map((section) {
-          switch (section) {
-            case BookingStep4Section.summaryCard:
-              return Column(
-                key: const ValueKey('summaryCard'),
-                children: [
-                   _SummaryCard(state: state),
-                   SizedBox(height: 32.h),
-                ],
+        children: [
+          SizedBox(height: 16.h),
+          // Route Timeline
+          _buildRouteTimeline(context, state, brandYellow),
+          SizedBox(height: 24.h),
+
+          // Mini Vehicle Card
+          _buildMiniVehicleCard(context, state, brandYellow),
+          SizedBox(height: 24.h),
+
+          // Date & Time
+          Row(
+            children: [
+              Expanded(
+                child: _buildInputBox(
+                  label: 'Date',
+                  value: state.pickupTimeType == 'NOW' ? 'Today' : '${state.selectedDate.day}/${state.selectedDate.month}/${state.selectedDate.year}',
+                  icon: Icons.calendar_today_outlined,
+                  onTap: () async {
+                    final date = await showDatePicker(
+                      context: context,
+                      initialDate: state.selectedDate,
+                      firstDate: DateTime.now(),
+                      lastDate: DateTime.now().add(const Duration(days: 365)),
+                    );
+                    if (date != null) viewModel.updateDate(date);
+                  },
+                ),
+              ),
+              SizedBox(width: 16.w),
+              Expanded(
+                child: _buildInputBox(
+                  label: 'Time',
+                  value: state.pickupTimeType == 'NOW' ? 'Now' : state.selectedTime,
+                  icon: Icons.access_time,
+                  onTap: () async {
+                    final time = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (time != null) viewModel.updateTime(time.format(context));
+                  },
+                ),
+              ),
+            ],
+          ),
+          SizedBox(height: 24.h),
+
+          // Passenger Details
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Passenger Details',
+                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              TextButton.icon(
+                onPressed: () async {
+                  try {
+                    // Fetch directly from repository to avoid autoDispose issues
+                    final repository = ref.read(userRepositoryProvider);
+                    final response = await repository.getUserProfile();
+                    
+                    if (!response.success || response.user == null) {
+                      throw Exception(response.message);
+                    }
+                    
+                    final user = response.user!;
+                    final firstName = user.firstName.isNotEmpty ? user.firstName : user.name.split(' ').first;
+                    final lastName = user.lastName.isNotEmpty ? user.lastName : (user.name.contains(' ') ? user.name.split(' ').last : '');
+                    
+                    _nameController.text = '$firstName $lastName'.trim();
+                    _phoneController.text = user.phone;
+                    _emailController.text = user.email;
+
+                    viewModel.updateCustomerInfo(
+                      firstName: firstName,
+                      lastName: lastName,
+                      phone: user.phone,
+                      email: user.email,
+                    );
+                  } catch (e) {
+                    if (context.mounted) {
+                      final errorMsg = e.toString().replaceAll('Exception: ', '');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(errorMsg.isNotEmpty ? errorMsg : 'Could not fetch account info')),
+                      );
+                    }
+                  }
+                },
+                icon: Icon(Icons.account_circle, size: 18.sp, color: brandYellow),
+                label: Text('Use my account', style: TextStyle(color: brandYellow, fontSize: 14.sp)),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          _buildUserDetailField(
+            hint: 'Full Name',
+            icon: Icons.person_outline,
+            controller: _nameController,
+            onChanged: (val) {
+              final parts = val.split(' ');
+              viewModel.updateCustomerInfo(
+                firstName: parts.isNotEmpty ? parts.first : '',
+                lastName: parts.length > 1 ? parts.sublist(1).join(' ') : '',
               );
-            case BookingStep4Section.tripDetails:
-              return Column(
-                key: const ValueKey('tripDetails'),
+            },
+            brandYellow: brandYellow,
+          ),
+          SizedBox(height: 12.h),
+          AppPhoneField(
+            controller: _phoneController,
+            onChanged: (val) => viewModel.updateCustomerInfo(phone: val),
+          ),
+          SizedBox(height: 12.h),
+          _buildUserDetailField(
+            hint: 'Email Address',
+            icon: Icons.email_outlined,
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            onChanged: (val) => viewModel.updateCustomerInfo(email: val),
+            brandYellow: brandYellow,
+          ),
+          SizedBox(height: 24.h),
+
+          // Promo Code
+          _buildPromoCodeField(brandYellow),
+          SizedBox(height: 32.h),
+
+          // Payment Methods
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Select payment method',
+                style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black87),
+              ),
+              Text(
+                'View All',
+                style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: brandYellow),
+              ),
+            ],
+          ),
+          SizedBox(height: 16.h),
+          _buildPaymentList(context, state, viewModel, brandYellow),
+          SizedBox(height: 40.h),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteTimeline(BuildContext context, BookingState state, Color brandYellow) {
+    final cleanPickup = cleanLocationName(state.pickupLocation);
+    final cleanDest = cleanLocationName(state.destination);
+
+    final pickupTitle = cleanPickup.isEmpty 
+        ? 'Current location' 
+        : (cleanPickup == 'Current location' ? 'Current location' : cleanPickup.split(',').first);
+    final destTitle = cleanDest.isEmpty ? 'Destination' : cleanDest.split(',').first;
+
+    return Column(
+      children: [
+        _buildTimelineItem(
+          icon: Icons.location_on,
+          iconColor: Colors.red,
+          title: pickupTitle,
+          subtitle: cleanPickup.isEmpty ? 'Waiting for location...' : cleanPickup,
+          showLine: true,
+        ),
+        _buildTimelineItem(
+          icon: Icons.location_on,
+          iconColor: brandYellow,
+          title: destTitle,
+          subtitle: cleanDest.isEmpty ? 'Waiting for destination...' : cleanDest,
+          trailing: state.distance != null 
+              ? Text(state.distance!, style: TextStyle(fontSize: 12.sp, color: Colors.black38))
+              : null,
+          showLine: false,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTimelineItem({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    Widget? trailing,
+    required bool showLine,
+  }) {
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              Icon(icon, color: iconColor, size: 24.sp),
+              if (showLine)
+                Expanded(
+                  child: Container(
+                    width: 2.w,
+                    margin: EdgeInsets.symmetric(vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(1.r),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          SizedBox(width: 16.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(title, style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold, color: Colors.black87)),
+                    if (trailing != null) trailing,
+                  ],
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  subtitle,
+                  style: TextStyle(fontSize: 12.sp, color: Colors.black38),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 16.h),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniVehicleCard(BuildContext context, BookingState state, Color brandYellow) {
+    final vehicle = state.selectedVehicle;
+    return Container(
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFEBEA), // Light red background for premium feel
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: brandYellow.withOpacity(0.5)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  vehicle?.name ?? 'Mustang Shelby GT',
+                  style: TextStyle(fontSize: 18.sp, fontWeight: FontWeight.bold, color: Colors.black87),
+                ),
+                SizedBox(height: 8.h),
+                Row(
+                  children: [
+                    Icon(Icons.star, color: brandYellow, size: 16.sp),
+                    SizedBox(width: 4.w),
+                    Text(
+                      '4.9',
+                      style: TextStyle(fontSize: 14.sp, fontWeight: FontWeight.bold, color: Colors.black45),
+                    ),
+                    SizedBox(width: 4.w),
+                    Text(
+                      '(531 reviews)',
+                      style: TextStyle(fontSize: 14.sp, color: Colors.black26),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (vehicle?.imageUrl != null && vehicle!.imageUrl.isNotEmpty)
+            Image.network(vehicle.imageUrl, width: 100.w, height: 60.h, fit: BoxFit.contain)
+          else
+            Icon(Icons.directions_car, size: 60.sp, color: Colors.grey[200]),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInputBox({required String label, required String value, required IconData icon, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: Colors.black.withOpacity(0.1)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(value.isEmpty ? label : value, style: TextStyle(fontSize: 14.sp, color: value.isEmpty ? Colors.black26 : Colors.black45)),
+            Icon(icon, size: 18.sp, color: Colors.black26),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPromoCodeField(Color brandYellow) {
+    return TextField(
+      decoration: InputDecoration(
+        hintText: 'Enter Promo Code',
+        hintStyle: TextStyle(fontSize: 14.sp, color: Colors.black26),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(color: Colors.black.withOpacity(0.1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(color: Colors.black.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(color: brandYellow, width: 1.5),
+        ),
+        suffixIcon: Icon(Icons.copy_rounded, size: 20.sp, color: Colors.black26),
+      ),
+    );
+  }
+
+  Widget _buildUserDetailField({
+    required String hint,
+    required IconData icon,
+    required TextEditingController controller,
+    required Function(String) onChanged,
+    TextInputType? keyboardType,
+    required Color brandYellow,
+  }) {
+    return TextFormField(
+      controller: controller,
+      onChanged: onChanged,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        hintText: hint,
+        hintStyle: TextStyle(fontSize: 14.sp, color: Colors.black26),
+        filled: true,
+        fillColor: Colors.white,
+        prefixIcon: Icon(icon, size: 20.sp, color: Colors.black45),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(color: Colors.black.withOpacity(0.1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(color: Colors.black.withOpacity(0.1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12.r),
+          borderSide: BorderSide(color: brandYellow, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentList(BuildContext context, BookingState state, BookingViewModel viewModel, Color brandYellow) {
+    if (state.paymentGateways.isEmpty) {
+      return Padding(
+        padding: EdgeInsets.symmetric(vertical: 20.h),
+        child: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return Column(
+      children: state.paymentGateways.map((gateway) {
+        Widget icon;
+        switch (gateway.id.toLowerCase()) {
+          case 'stripe':
+            icon = Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Image.network(
+                  'https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/Visa_Inc._logo.svg/512px-Visa_Inc._logo.svg.png', 
+                  width: 24.w,
+                  errorBuilder: (context, error, stackTrace) => Icon(Icons.credit_card, size: 20.sp, color: Colors.black26),
+                ),
+                SizedBox(width: 6.w),
+                Image.network(
+                  'https://upload.wikimedia.org/wikipedia/commons/thumb/2/2a/Mastercard-logo.svg/512px-Mastercard-logo.svg.png', 
+                  width: 24.w,
+                  errorBuilder: (context, error, stackTrace) => const SizedBox(),
+                ),
+              ],
+            );
+            break;
+          case 'paypal':
+            icon = Image.network(
+              'https://upload.wikimedia.org/wikipedia/commons/thumb/b/b5/PayPal.svg/512px-PayPal.svg.png', 
+              width: 35.w,
+              errorBuilder: (context, error, stackTrace) => Icon(Icons.account_balance, size: 20.sp, color: Colors.black26),
+            );
+            break;
+          case 'wallet':
+            icon = Icon(Icons.account_balance_wallet_outlined, color: brandYellow, size: 28.sp);
+            break;
+          case 'cash':
+            icon = Icon(Icons.payments_outlined, color: Colors.black45, size: 28.sp);
+            break;
+          default:
+            icon = Icon(Icons.payment, color: Colors.black45, size: 28.sp);
+        }
+
+        return _buildPaymentOption(
+          id: gateway.id,
+          iconWidget: icon,
+          title: gateway.title,
+          subtitle: gateway.description,
+          isSelected: state.paymentMethod == gateway.id,
+          onTap: () => viewModel.updateCustomerInfo(paymentMethod: gateway.id),
+          brandYellow: brandYellow,
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPaymentOption({
+    required String id,
+    Widget? iconWidget,
+    required String title,
+    String? subtitle,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required Color brandYellow,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        margin: EdgeInsets.only(bottom: 12.h),
+        padding: EdgeInsets.all(16.r),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12.r),
+          border: Border.all(color: isSelected ? brandYellow : Colors.black.withOpacity(0.05)),
+        ),
+        child: Row(
+          children: [
+            if (iconWidget != null) 
+              Container(
+                width: 44.w, 
+                height: 44.w,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8.r),
+                ),
+                child: iconWidget,
+              ),
+            SizedBox(width: 16.w),
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Trip Details',
-                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
+                    title, 
+                    style: TextStyle(
+                      fontSize: 14.sp, 
+                      fontWeight: FontWeight.bold, 
+                      color: isSelected ? Colors.black87 : Colors.black45
+                    )
                   ),
-                  SizedBox(height: 16.h),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CounterItem(
-                          label: 'Passengers',
-                          count: state.passengers,
-                          maxCount: state.selectedVehicle?.passengers ?? 4,
-                          onIncrement: () => viewModel.updatePassengers(state.passengers + 1),
-                          onDecrement: () => viewModel.updatePassengers(state.passengers - 1),
-                        ),
-                      ),
-                      SizedBox(width: 16.w),
-                      Expanded(
-                        child: CounterItem(
-                          label: 'Luggage',
-                          count: state.luggage,
-                          maxCount: state.selectedVehicle?.luggage ?? 3,
-                          onIncrement: () => viewModel.updateLuggage(state.luggage + 1),
-                          onDecrement: () => viewModel.updateLuggage(state.luggage - 1),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 32.h),
+                  if (subtitle != null)
+                    Text(
+                      subtitle, 
+                      style: TextStyle(fontSize: 12.sp, color: Colors.black26),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                 ],
-              );
-            case BookingStep4Section.personalDetails:
-              return Column(
-                key: const ValueKey('personalDetails'),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Personal Details',
-                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 16.h),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _CustomTextField(
-                          label: 'First Name',
-                          hint: 'John',
-                          value: state.firstName,
-                          onChanged: (v) => viewModel.updateCustomerInfo(firstName: v),
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: _CustomTextField(
-                          label: 'Last Name',
-                          hint: 'Doe',
-                          value: state.lastName,
-                          onChanged: (v) => viewModel.updateCustomerInfo(lastName: v),
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 16.h),
-                  _CustomTextField(
-                    label: 'Email Address',
-                    hint: 'john.doe@example.com',
-                    value: state.email,
-                    onChanged: (v) => viewModel.updateCustomerInfo(email: v),
-                  ),
-                  SizedBox(height: 16.h),
-                  _CustomTextField(
-                    label: 'Phone Number',
-                    hint: '+1 234 567 890',
-                    value: state.phone,
-                    onChanged: (v) => viewModel.updateCustomerInfo(phone: v),
-                    keyboardType: TextInputType.phone,
-                  ),
-                  SizedBox(height: 32.h),
-                ],
-              );
-            case BookingStep4Section.noteField:
-              return Column(
-                key: const ValueKey('noteField'),
-                children: [
-                  _CustomTextField(
-                    label: 'Additional Note',
-                    hint: 'E.g. Call me when you arrive',
-                    value: state.additionalNote,
-                    onChanged: (v) => viewModel.updateCustomerInfo(note: v),
-                    maxLines: 3,
-                  ),
-                  SizedBox(height: 32.h),
-                ],
-              );
-            case BookingStep4Section.paymentMethods:
-              return Column(
-                key: const ValueKey('paymentMethods'),
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Payment Method',
-                    style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 16.sp, fontWeight: FontWeight.bold),
-                  ),
-                  SizedBox(height: 16.h),
-                  ...state.paymentGateways.map((g) => RadioListTile<String>(
-                    title: Text(g.title, style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color, fontSize: 14.sp)),
-                    value: g.id,
-                    groupValue: state.paymentMethod,
-                    onChanged: (v) => viewModel.updateCustomerInfo(paymentMethod: v),
-                    activeColor: Theme.of(context).colorScheme.secondary,
-                    contentPadding: EdgeInsets.zero,
-                  )),
-                  SizedBox(height: 32.h),
-                ],
-              );
-            case BookingStep4Section.requirements:
-              return Column(
-                key: const ValueKey('requirements'),
-                children: [
-                   // Add requirements grid if needed, for now just a placeholder container 
-                   // as it wasn't explicitly in the original list but in my enum
-                   SizedBox(height: 32.h),
-                ],
-              );
-            default: return const SizedBox.shrink();
-          }
-        }).toList(),
+              ),
+            ),
+            if (isSelected)
+              Icon(Icons.check_circle, color: brandYellow, size: 20.sp),
+          ],
+        ),
       ),
     );
   }
@@ -1374,9 +1952,9 @@ class _SummaryCard extends StatelessWidget {
           SizedBox(height: 16.h),
           Divider(color: Theme.of(context).colorScheme.onSecondary.withValues(alpha: 0.2)),
           SizedBox(height: 16.h),
-          _SummaryItem(label: 'Pickup', value: state.pickupLocation),
+          _SummaryItem(label: 'Pickup', value: cleanLocationName(state.pickupLocation)),
           SizedBox(height: 12.h),
-          _SummaryItem(label: 'Destination', value: state.destination),
+          _SummaryItem(label: 'Destination', value: cleanLocationName(state.destination)),
           SizedBox(height: 12.h),
           _SummaryItem(label: 'Time', value: state.pickupTimeType == 'NOW' ? 'As soon as possible' : '${state.selectedDate.day}/${state.selectedDate.month} @ ${state.selectedTime}'),
         ],

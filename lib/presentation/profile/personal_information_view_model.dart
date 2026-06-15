@@ -16,7 +16,6 @@ class PersonalInformationViewModel extends _$PersonalInformationViewModel {
     String? nickname,
     String? phone,
     String? website,
-    String? bio,
   }) async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(() async {
@@ -28,7 +27,6 @@ class PersonalInformationViewModel extends _$PersonalInformationViewModel {
         nickname: nickname,
         phone: phone,
         website: website,
-        bio: bio,
       );
       final response = await repository.updateProfile(request);
       if (!response.success) {

@@ -12,8 +12,8 @@ final appColorProvider = StateNotifierProvider<AppColorNotifier, Color>((ref) {
 
 class AppColorNotifier extends StateNotifier<Color> {
   final SharedPreferences _prefs;
-  static const _colorKey = 'app_custom_color';
-  static const defaultColor = Color(0xFFD4AF37); // gold
+  static const _colorKey = 'app_custom_color_v2';
+  static const defaultColor = Color(0xFFDC423D); // main brand red
 
   AppColorNotifier(this._prefs) : super(_loadInitialColor(_prefs));
 
@@ -53,8 +53,8 @@ final appPrimaryColorProvider =
 
 class AppPrimaryColorNotifier extends StateNotifier<Color> {
   final SharedPreferences _prefs;
-  static const _colorKey = 'app_custom_primary_color';
-  static const defaultColor = Color(0xFF0D2137); // navy
+  static const _colorKey = 'app_custom_primary_color_v2';
+  static const defaultColor = Color(0xFF1E1E1E); // dark grey
 
   AppPrimaryColorNotifier(this._prefs) : super(_loadInitialColor(_prefs));
 
@@ -93,7 +93,7 @@ final appTextColorProvider =
 
 class AppTextColorNotifier extends StateNotifier<Color> {
   final SharedPreferences _prefs;
-  static const _colorKey = 'app_custom_text_color';
+  static const _colorKey = 'app_custom_text_color_v2';
   static const defaultColor = Color(0xFF333333); // charcoal gray
 
   AppTextColorNotifier(this._prefs) : super(_loadInitialColor(_prefs));
@@ -133,8 +133,8 @@ final appHighlightTextColorProvider =
 
 class AppHighlightTextColorNotifier extends StateNotifier<Color> {
   final SharedPreferences _prefs;
-  static const _colorKey = 'app_custom_highlight_text_color';
-  static const defaultColor = Color(0xFF001F3F); // navy
+  static const _colorKey = 'app_custom_highlight_text_color_v2';
+  static const defaultColor = Color(0xFF1E1E1E); // dark grey
 
   AppHighlightTextColorNotifier(this._prefs) : super(_loadInitialColor(_prefs));
 

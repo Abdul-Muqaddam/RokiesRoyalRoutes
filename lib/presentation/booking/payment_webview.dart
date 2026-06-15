@@ -5,9 +5,9 @@ import '../../core/theme/app_theme.dart';
 
 class PaymentWebView extends StatefulWidget {
   final String url;
-  final int bookingId;
+  final String bookingId;
   final String paymentType; // 'stripe' or 'paypal'
-  final Function(String, int) onSuccess;
+  final Function(String, String) onSuccess;
   final VoidCallback onCancel;
 
   const PaymentWebView({
@@ -51,7 +51,7 @@ class _PaymentWebViewState extends State<PaymentWebView> {
               if (url.contains('paypal-success')) {
                 final uri = Uri.parse(url);
                 final token = uri.queryParameters['token'];
-                final urlBookingId = int.tryParse(uri.queryParameters['booking_id'] ?? '') ?? widget.bookingId;
+                final urlBookingId = uri.queryParameters['booking_id'] ?? widget.bookingId;
                 
                 if (token != null) {
                   widget.onSuccess(token, urlBookingId);

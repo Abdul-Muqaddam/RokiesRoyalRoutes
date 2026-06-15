@@ -6,7 +6,7 @@ part of 'trips_view_model.dart';
 // RiverpodGenerator
 // **************************************************************************
 
-String _$tripsViewModelHash() => r'a0e963d31d19c7c686e78465de8716a0e0371f4b';
+String _$tripsViewModelHash() => r'19d5eb595446ce5852be410c70524f8336240cf5';
 
 /// See also [TripsViewModel].
 @ProviderFor(TripsViewModel)

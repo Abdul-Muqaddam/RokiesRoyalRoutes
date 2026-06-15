@@ -28,15 +28,28 @@ class LoginRequest {
 
 class RegisterRequest {
   final String name;
+  final String username;
   final String email;
   final String password;
+  final String role;
+  final String? referralCode;
 
-  RegisterRequest({required this.name, required this.email, required this.password});
+  RegisterRequest({
+    required this.name,
+    required this.username,
+    required this.email,
+    required this.password,
+    this.role = 'user',
+    this.referralCode,
+  });
 
   Map<String, dynamic> toJson() => {
     'name': name,
+    'username': username,
     'email': email,
     'password': password,
+    'role': role,
+    if (referralCode != null) 'referral_code': referralCode,
   };
 }
 

@@ -54,6 +54,13 @@ class Vehicle {
   final String currency;
   final String type;
   final String category;
+  final String? maxPower;
+  final String? fuelEfficiency;
+  final String? maxSpeed;
+  final String? acceleration;
+  final String? color;
+  final String? fuelType;
+  final String? gearType;
 
   Vehicle({
     required this.id,
@@ -66,5 +73,12 @@ class Vehicle {
     required this.currency,
     required this.type,
     required this.category,
+    this.maxPower,
+    this.fuelEfficiency,
+    this.maxSpeed,
+    this.acceleration,
+    this.color,
+    this.fuelType,
+    this.gearType,
   });
 }

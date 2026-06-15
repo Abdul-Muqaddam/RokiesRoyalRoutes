@@ -3,10 +3,10 @@ import 'profile_settings.dart';
 import 'booking_settings.dart';
 
 class AppConfig {
-  final String accentColor; // Hex string (e.g., "D4AF37")
-  final String primaryColor; // Hex string (e.g., "0D2137")
+  final String accentColor; // Hex string (e.g., "DC423D")
+  final String primaryColor; // Hex string (e.g., "1E1E1E")
   final String textColor; // Hex string (e.g., "333333")
-  final String highlightTextColor; // Hex string (e.g., "D4AF37")
+  final String highlightTextColor; // Hex string (e.g., "1E1E1E")
   
   final HomeSettings homeSettings;
   final ProfileSettings profileSettings;
@@ -24,10 +24,10 @@ class AppConfig {
 
   factory AppConfig.defaultConfig() {
     return AppConfig(
-      accentColor: "D4AF37",
-      primaryColor: "0D2137",
+      accentColor: "DC423D",
+      primaryColor: "1E1E1E",
       textColor: "333333",
-      highlightTextColor: "001f3f",
+      highlightTextColor: "1E1E1E",
       homeSettings: HomeSettings.defaultSettings(),
       profileSettings: ProfileSettings.defaultSettings(),
       bookingSettings: BookingSettings.defaultSettings(),
@@ -48,10 +48,10 @@ class AppConfig {
 
   factory AppConfig.fromJson(Map<String, dynamic> json) {
     return AppConfig(
-      accentColor: json['accentColor']?.toString() ?? "D4AF37",
-      primaryColor: json['primaryColor']?.toString() ?? "0D2137",
+      accentColor: (json['accentColor']?.toString() == "D4AF37" || json['accentColor'] == null) ? "DC423D" : json['accentColor'].toString(),
+      primaryColor: (json['primaryColor']?.toString() == "0D2137" || json['primaryColor'] == null) ? "1E1E1E" : json['primaryColor'].toString(),
       textColor: json['textColor']?.toString() ?? "333333",
-      highlightTextColor: json['highlightTextColor']?.toString() ?? "001f3f",
+      highlightTextColor: (json['highlightTextColor']?.toString() == "001f3f" || json['highlightTextColor'] == null) ? "1E1E1E" : json['highlightTextColor'].toString(),
       homeSettings: json['homeSettings'] != null 
           ? HomeSettings.fromJson(json['homeSettings']) 
           : HomeSettings.defaultSettings(),

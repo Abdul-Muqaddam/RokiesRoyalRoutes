@@ -1,397 +1,225 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import '../../core/theme/app_theme.dart';
 import '../../data/models/booking_models.dart';
 import 'trips_view_model.dart';
 
-class TripsScreen extends ConsumerWidget {
+class TripsScreen extends ConsumerStatefulWidget {
   const TripsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final tripsStateAsync = ref.watch(tripsViewModelProvider);
+  ConsumerState<TripsScreen> createState() => _TripsScreenState();
+}
+
+class _TripsScreenState extends ConsumerState<TripsScreen> {
+  int _selectedTab = 0; // 0: Upcoming, 1: Completed, 2: Cancelled
+
+  @override
+  Widget build(BuildContext context) {
+    const Color brandYellow = Color(0xFFDC423D);
 
     return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'My Trips',
-                    style: TextStyle(
-                      color: Theme.of(context).textTheme.titleLarge?.color,
-                      fontSize: 22.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 20.h),
-                  tripsStateAsync.when(
-                    data: (state) => Row(
-                      children: [
-                        Expanded(
-                          child: _TripTabButton(
-                            text: 'All',
-                            isSelected: state.selectedTab == 0,
-                            onClick: () => ref.read(tripsViewModelProvider.notifier).selectTab(0),
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: _TripTabButton(
-                            text: 'Upcoming',
-                            isSelected: state.selectedTab == 1,
-                            onClick: () => ref.read(tripsViewModelProvider.notifier).selectTab(1),
-                          ),
-                        ),
-                        SizedBox(width: 8.w),
-                        Expanded(
-                          child: _TripTabButton(
-                            text: 'Past',
-                            isSelected: state.selectedTab == 2,
-                            onClick: () => ref.read(tripsViewModelProvider.notifier).selectTab(2),
-                          ),
-                        ),
-                      ],
-                    ),
-                    loading: () => const SizedBox.shrink(),
-                    error: (_, __) => const SizedBox.shrink(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(color: AppColors.dividerGray, height: 1),
-            Expanded(
-              child: tripsStateAsync.when(
-                data: (state) {
-                  if (state.trips.isEmpty) {
-                    return Center(
-                      child: Text(
-                        'No trips found',
-                        style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color?.withValues(alpha: 0.6), fontSize: 14),
-                      ),
-                    );
-                  }
-                  return ListView.separated(
-                    padding: EdgeInsets.all(20.w),
-                    itemCount: state.trips.length,
-                    separatorBuilder: (context, index) => SizedBox(height: 16.h),
-                    itemBuilder: (context, index) {
-                      return _TripCard(trip: state.trips[index]);
-                    },
-                  );
-                },
-                loading: () => Center(
-                  child: CircularProgressIndicator(color: Theme.of(context).colorScheme.secondary),
-                ),
-                error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline, color: Colors.red, size: 48),
-                      SizedBox(height: 16.h),
-                      const Text('Failed to load trips'),
-                      TextButton(
-                        onPressed: () => ref.read(tripsViewModelProvider.notifier).refresh(),
-                        child: Text('Retry', style: TextStyle(color: Theme.of(context).colorScheme.secondary)),
-                      ),
-                    ],
-                  ),
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leadingWidth: 80.w,
+        leading: GestureDetector(
+          onTap: () => context.pop(),
+          child: Row(
+            children: [
+              SizedBox(width: 20.w),
+              Icon(Icons.arrow_back_ios, color: Colors.black87, size: 18.sp),
+              Text(
+                'Back',
+                style: TextStyle(
+                  color: Colors.black87,
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
-            ),
-            Padding(
-              padding: EdgeInsets.all(20.w),
-              child: ElevatedButton(
-                onPressed: () => context.push('/booking'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).colorScheme.secondary,
-                  foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                  minimumSize: Size(double.infinity, 56.h),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16.r)),
-                ),
-                child: Text(
-                  'Book New Trip',
-                  style: TextStyle(fontSize: 16.sp, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-    );
-  }
-}
-
-class _TripTabButton extends StatelessWidget {
-  final String text;
-  final bool isSelected;
-  final VoidCallback onClick;
-
-  const _TripTabButton({
-    required this.text,
-    required this.isSelected,
-    required this.onClick,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44.h,
-      child: ElevatedButton(
-        onPressed: onClick,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected ? Theme.of(context).colorScheme.secondary : AppColors.lightGray,
-          foregroundColor: isSelected ? Theme.of(context).colorScheme.onSecondary : Colors.grey,
-          elevation: 0,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-          padding: EdgeInsets.symmetric(horizontal: 4.w),
-        ),
-        child: Text(
-          text,
+        title: Text(
+          'History',
           style: TextStyle(
-            fontSize: 11.sp,
+            color: Colors.black,
+            fontSize: 18.sp,
             fontWeight: FontWeight.bold,
           ),
-          maxLines: 1,
         ),
+        centerTitle: true,
       ),
-    );
-  }
-}
-
-class _TripCard extends StatelessWidget {
-  final Trip trip;
-
-  const _TripCard({required this.trip});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(color: AppColors.dividerGray, width: 2.w),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10.r,
-            offset: const Offset(0, 2),
+      body: Column(
+        children: [
+          SizedBox(height: 10.h),
+          _buildSegmentedControl(brandYellow),
+          SizedBox(height: 20.h),
+          Expanded(
+            child: _buildTripList(brandYellow),
           ),
         ],
       ),
-      child: Padding(
-        padding: EdgeInsets.all(20.w),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _StatusBadge(status: trip.status),
-                Text(
-                  trip.reference ?? '',
-                  style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 10.sp),
-                ),
-              ],
+    );
+  }
+
+  Widget _buildSegmentedControl(Color brandYellow) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 20.w),
+      padding: EdgeInsets.all(4.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: brandYellow.withOpacity(0.3)),
+      ),
+      child: Row(
+        children: [
+          _buildTabItem(0, 'Upcoming', brandYellow),
+          _buildTabItem(1, 'Completed', brandYellow),
+          _buildTabItem(2, 'Cancelled', brandYellow),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTabItem(int index, String label, Color brandYellow) {
+    final isSelected = _selectedTab == index;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () => setState(() => _selectedTab = index),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: EdgeInsets.symmetric(vertical: 10.h),
+          decoration: BoxDecoration(
+            color: isSelected ? brandYellow : Colors.white,
+            borderRadius: BorderRadius.circular(10.r),
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isSelected ? Colors.white : Colors.black45,
+              fontSize: 14.sp,
+              fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             ),
-            SizedBox(height: 16.h),
-            Text(
-              trip.title,
-              style: TextStyle(
-                color: Theme.of(context).textTheme.titleMedium?.color,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(height: 4.h),
-            Text(
-              trip.dateTime,
-              style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp),
-            ),
-            SizedBox(height: 16.h),
-            Container(
-              width: double.infinity,
-              padding: EdgeInsets.all(12.w),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(16.r),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 8.w,
-                        height: 8.w,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.secondary,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      SizedBox(width: 12.w),
-                      Expanded(
-                        child: Text(
-                          trip.pickupLocation ?? 'Unknown Location',
-                          style: TextStyle(
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 10.h),
-                  Row(
-                    children: [
-                      SvgPicture.asset(
-                        'assets/icons/ic_location.svg',
-                        width: 10.w,
-                        colorFilter: ColorFilter.mode(Theme.of(context).textTheme.bodyMedium!.color!, BlendMode.srcIn),
-                      ),
-                      SizedBox(width: 10.w),
-                      Expanded(
-                        child: Text(
-                          trip.dropoffLocation ?? 'Unknown Destination',
-                          style: TextStyle(
-                            color: Theme.of(context).textTheme.bodyMedium?.color,
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w500,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: 16.h),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  trip.vehicleType,
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodySmall?.color,
-                    fontSize: 12.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  trip.price ?? '',
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.titleLarge?.color,
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 16.h),
-            Row(
-              children: [
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      // Navigate to details
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary,
-                      foregroundColor: Theme.of(context).colorScheme.onSecondary,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                    ),
-                    child: Text(
-                      'View Details',
-                      style: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-                if (trip.status == TripStatus.past) ...[
-                  SizedBox(width: 10.w),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () {},
-                      style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppColors.dividerGray),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.r)),
-                        padding: EdgeInsets.symmetric(vertical: 12.h),
-                      ),
-                      child: Text(
-                        'Rebook',
-                        style: TextStyle(color: Theme.of(context).textTheme.bodySmall?.color, fontSize: 12.sp, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
-}
 
-class _StatusBadge extends StatelessWidget {
-  final TripStatus status;
+  Widget _buildTripList(Color brandYellow) {
+    // In a real app, you would filter the list from the viewModel based on _selectedTab
+    // For now, I'll use the viewModel data to populate the list with mockup-style cards
+    final tripsStateAsync = ref.watch(tripsViewModelProvider);
 
-  const _StatusBadge({required this.status});
+    return tripsStateAsync.when(
+      data: (state) {
+        // Filter logic based on tab (assuming state.trips has status property)
+        final filteredTrips = state.trips.where((trip) {
+          if (_selectedTab == 0) return trip.status == TripStatus.confirmed || trip.status == TripStatus.pending;
+          if (_selectedTab == 1) return trip.status == TripStatus.past;
+          if (_selectedTab == 2) return trip.status == TripStatus.cancelled;
+          return true;
+        }).toList();
 
-  @override
-  Widget build(BuildContext context) {
-    Color color;
-    String text;
+        if (filteredTrips.isEmpty) {
+          return Center(
+            child: Text(
+              'No history found',
+              style: TextStyle(color: Colors.black26, fontSize: 16.sp),
+            ),
+          );
+        }
 
-    switch (status) {
-      case TripStatus.confirmed:
-        color = Colors.green;
-        text = 'Confirmed';
-        break;
-      case TripStatus.pending:
-        color = Colors.orange;
-        text = 'Pending';
-        break;
-      case TripStatus.cancelled:
-        color = Colors.red;
-        text = 'Cancelled';
-        break;
-      case TripStatus.past:
-        color = Colors.grey;
-        text = 'Past';
-        break;
+        return ListView.builder(
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          itemCount: filteredTrips.length,
+          itemBuilder: (context, index) {
+            final trip = filteredTrips[index];
+            return _buildHistoryCard(trip, brandYellow);
+          },
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (err, _) => Center(child: Text('Error: $err')),
+    );
+  }
+
+  Widget _buildHistoryCard(Trip trip, Color brandYellow) {
+    String statusText = '';
+    Color statusColor = Colors.black45;
+
+    if (_selectedTab == 0) {
+      statusText = trip.dateTime; // e.g. "Today at 09:20 am"
+    } else if (_selectedTab == 1) {
+      statusText = 'Done';
+      statusColor = const Color(0xFF4CAF50); // Green
+    } else {
+      statusText = 'Cancel';
+      statusColor = const Color(0xFFF44336); // Red
     }
 
-    return Row(
-      children: [
-        Container(
-          width: 8.w,
-          height: 8.w,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        SizedBox(width: 6.w),
-        Text(
-          text.toUpperCase(),
-          style: TextStyle(
-            color: color,
-            fontSize: 9.sp,
-            fontWeight: FontWeight.bold,
+    return Container(
+      margin: EdgeInsets.only(bottom: 16.h),
+      padding: EdgeInsets.all(16.r),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12.r),
+        border: Border.all(color: brandYellow.withOpacity(0.3)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        ),
-      ],
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  trip.title, // User/Driver Name
+                  style: TextStyle(
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 4.h),
+                Text(
+                  trip.vehicleType, // Vehicle Model
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    color: Colors.black26,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: 16.w),
+          Text(
+            statusText,
+            style: TextStyle(
+              fontSize: 12.sp,
+              fontWeight: FontWeight.bold,
+              color: statusColor,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

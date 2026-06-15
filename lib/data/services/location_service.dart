@@ -19,10 +19,8 @@ class LocationService {
 
     permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return 'Permission denied';
-      }
+      // Return denied so UI can explicitly request using the custom bottom sheet first.
+      return 'Permission denied';
     }
 
     if (permission == LocationPermission.deniedForever) {
@@ -61,6 +59,24 @@ class LocationService {
       return 'Error detecting location';
     }
     return null;
+  }
+
+  Future<bool> requestLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return false;
+
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) return false;
+    }
+
+    if (permission == LocationPermission.deniedForever) return false;
+
+    return true;
   }
 
   String _formatAddress(Placemark place) {

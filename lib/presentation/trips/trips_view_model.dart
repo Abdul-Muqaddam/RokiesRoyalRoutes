@@ -32,13 +32,17 @@ class TripsState {
 class TripsViewModel extends _$TripsViewModel {
   @override
   FutureOr<TripsState> build() async {
-    return _fetchTrips(0);
+    final bookingsAsync = ref.watch(bookingsStreamProvider);
+    final tabIndex = state.valueOrNull?.selectedTab ?? 0;
+
+    return bookingsAsync.when(
+      data: (allTrips) => _processTrips(allTrips, tabIndex),
+      loading: () => TripsState(selectedTab: tabIndex, trips: [], isLoading: true),
+      error: (err, stack) => TripsState(selectedTab: tabIndex, trips: [], isLoading: false),
+    );
   }
 
-  Future<TripsState> _fetchTrips(int tabIndex) async {
-    final repository = ref.read(bookingRepositoryProvider);
-    final allTrips = await repository.getAllTrips();
-    
+  TripsState _processTrips(List<Trip> allTrips, int tabIndex) {
     List<Trip> filteredTrips;
     final now = DateTime.now();
 
@@ -47,6 +51,11 @@ class TripsViewModel extends _$TripsViewModel {
         filteredTrips = allTrips.where((trip) {
           if (trip.pickupDate == null || trip.pickupTime == null) return false;
           try {
+            if (trip.pickupTime!.toLowerCase() == 'now') {
+              final tripDate = DateTime.parse('${trip.pickupDate}');
+              final today = DateTime(now.year, now.month, now.day);
+              return tripDate.isAfter(today) || tripDate.isAtSameMomentAs(today);
+            }
             final tripDate = DateTime.parse('${trip.pickupDate} ${trip.pickupTime}');
             return tripDate.isAfter(now) || tripDate.isAtSameMomentAs(now);
           } catch (e) {
@@ -58,6 +67,11 @@ class TripsViewModel extends _$TripsViewModel {
         filteredTrips = allTrips.where((trip) {
           if (trip.pickupDate == null || trip.pickupTime == null) return true;
           try {
+            if (trip.pickupTime!.toLowerCase() == 'now') {
+              final tripDate = DateTime.parse('${trip.pickupDate}');
+              final today = DateTime(now.year, now.month, now.day);
+              return tripDate.isBefore(today);
+            }
             final tripDate = DateTime.parse('${trip.pickupDate} ${trip.pickupTime}');
             return tripDate.isBefore(now);
           } catch (e) {
@@ -78,22 +92,14 @@ class TripsViewModel extends _$TripsViewModel {
     );
   }
 
-  Future<void> selectTab(int index) async {
-    // Keep previous data while loading to avoid full screen flicker/disappearance
-    if (state.hasValue) {
-      state = const AsyncValue<TripsState>.loading().copyWithPrevious(state);
-    } else {
-      state = const AsyncValue<TripsState>.loading();
-    }
-    state = await AsyncValue.guard(() => _fetchTrips(index));
+  void selectTab(int index) {
+    state = AsyncValue.data(
+      _processTrips(ref.read(bookingsStreamProvider).value ?? [], index),
+    );
   }
 
   Future<void> refresh() async {
-    if (state.hasValue) {
-      state = const AsyncValue<TripsState>.loading().copyWithPrevious(state);
-    } else {
-      state = const AsyncValue<TripsState>.loading();
-    }
-    state = await AsyncValue.guard(() => _fetchTrips(state.value?.selectedTab ?? 0));
+    // ref.invalidate(bookingsStreamProvider) will trigger a refresh of the stream
+    ref.invalidate(bookingsStreamProvider);
   }
 }
